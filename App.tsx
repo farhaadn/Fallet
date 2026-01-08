@@ -60,8 +60,6 @@ const App: React.FC = () => {
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showFromAccountPicker, setShowFromAccountPicker] = useState(false);
   const [showToAccountPicker, setShowToAccountPicker] = useState(false);
-  const [showAccountTypePicker, setShowAccountTypePicker] = useState(false);
-  const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [selectedMainCategory, setSelectedMainCategory] = useState<Category | null>(null);
 
   const [tempAccount, setTempAccount] = useState<Account | null>(null);
@@ -88,12 +86,9 @@ const App: React.FC = () => {
   const [txDate, setTxDate] = useState<string>('');
 
   const colorInputRef = useRef<HTMLInputElement>(null);
-  
-  // Advanced Reordering state
-  const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
   const accountsContainerRef = useRef<HTMLDivElement>(null);
+  const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
 
-  // Unified Action Button Styles
   const baseActionBtn = "w-10 h-10 flex items-center justify-center rounded-full border border-zinc-800 bg-[#1e1e1e] active:scale-95 transition-all shrink-0";
   const closeBtn = `${baseActionBtn} text-zinc-400`;
   const saveBtn = `${baseActionBtn} text-blue-500`;
@@ -290,7 +285,6 @@ const App: React.FC = () => {
     setIsAddingAccount(false);
     setNewAccName('');
     setNewAccBalance('0');
-    setNewAccCurrency('IRT');
   };
 
   const handleStartEditAccount = (acc: Account) => {
@@ -311,7 +305,6 @@ const App: React.FC = () => {
     setAccounts(prev => prev.filter(a => a.id !== id));
     setSelectedAccountIds(prev => prev.filter(x => x !== id));
     setEditingAccount(null);
-    setTempAccount(null);
   };
 
   const handleKeypadPress = (val: string) => {
@@ -465,7 +458,6 @@ const App: React.FC = () => {
     return [...currencyRates].sort((a, b) => a.code === 'IRT' ? -1 : b.code === 'IRT' ? 1 : 0);
   }, [currencyRates]);
 
-  // Unified FAB Action
   const handleFabAction = () => {
     if (activeView === 'dashboard' || activeView === 'records') {
       handleOpenNewTransaction();
@@ -482,34 +474,21 @@ const App: React.FC = () => {
     }
   };
 
-  // Optimized Global Pointer Drag Reordering
   const onHandlePointerDown = (e: React.PointerEvent, index: number) => {
     setDraggingIdx(index);
     if ('vibrate' in navigator) navigator.vibrate(20);
-    
-    // Attach global move and up listeners
     const handleGlobalPointerMove = (moveEvent: PointerEvent) => {
       if (accountsContainerRef.current) {
-        const containerRect = accountsContainerRef.current.getBoundingClientRect();
         const y = moveEvent.clientY;
-        
-        // Find which child is under the pointer
         const children = Array.from(accountsContainerRef.current.children) as Element[];
         let targetIdx = -1;
-        
         for (let i = 0; i < children.length; i++) {
           const rect = children[i].getBoundingClientRect();
-          if (y >= rect.top && y <= rect.bottom) {
-            targetIdx = i;
-            break;
-          }
+          if (y >= rect.top && y <= rect.bottom) { targetIdx = i; break; }
         }
-        
         if (targetIdx !== -1) {
           setDraggingIdx(currentIdx => {
             if (currentIdx === null || currentIdx === targetIdx) return currentIdx;
-            
-            // Reorder accounts state locally for a smooth feel
             setAccounts(prev => {
               const next = [...prev];
               const item = next[currentIdx];
@@ -522,13 +501,11 @@ const App: React.FC = () => {
         }
       }
     };
-
     const handleGlobalPointerUp = () => {
       setDraggingIdx(null);
       window.removeEventListener('pointermove', handleGlobalPointerMove);
       window.removeEventListener('pointerup', handleGlobalPointerUp);
     };
-
     window.addEventListener('pointermove', handleGlobalPointerMove);
     window.addEventListener('pointerup', handleGlobalPointerUp);
   };
@@ -579,20 +556,30 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Last Records Card */}
+            {/* Last Records Card with simplified header swap for empty state */}
             <div className="bg-[#1e1e1e] rounded-[8px] border border-zinc-800/80 shadow-xl overflow-hidden">
                <div className="px-3 py-4 flex items-center justify-between">
-                 <h2 className="text-base font-medium text-white tracking-tight">Last records overview</h2>
+                 <h2 className="text-base font-medium text-white tracking-tight">
+                    {transactionsWithPreBalance.length === 0 ? 'No records' : 'Last records overview'}
+                 </h2>
                  <List className="w-4 h-4 text-zinc-500" />
                </div>
                <div className="w-full">
-                 {transactionsWithPreBalance.slice(0, 5).map(tx => (
-                   <TransactionItem key={`${tx.id}-${tx.perspective || 'solo'}`} transaction={tx} perspective={tx.perspective} preBalance={tx.preBalance} accountName={accounts.find(a => a.id === (tx.perspective === 'target' ? tx.toAccountId : tx.accountId))?.name || 'Unknown'} onClick={() => handleEditTransaction(tx)} onDelete={() => performDeleteTransaction(tx.id)} onClone={() => handleCloneTransaction(tx)} onLongPress={() => handleToggleRecordSelection(tx.id)} isSelected={selectedRecordIds.includes(tx.id)} fromAccountName={accounts.find(a => a.id === tx.accountId)?.name} toAccountName={accounts.find(a => a.id === tx.toAccountId)?.name} />
-                 ))}
+                 {transactionsWithPreBalance.length === 0 ? (
+                   <div className="py-10 flex flex-col items-center justify-center text-zinc-500 border-t border-zinc-900/30">
+                      <span className="text-[10px] font-medium uppercase tracking-widest opacity-40">No records</span>
+                   </div>
+                 ) : (
+                   <>
+                     {transactionsWithPreBalance.slice(0, 5).map(tx => (
+                       <TransactionItem key={`${tx.id}-${tx.perspective || 'solo'}`} transaction={tx} perspective={tx.perspective} preBalance={tx.preBalance} accountName={accounts.find(a => a.id === (tx.perspective === 'target' ? tx.toAccountId : tx.accountId))?.name || 'Unknown'} onClick={() => handleEditTransaction(tx)} onDelete={() => performDeleteTransaction(tx.id)} onClone={() => handleCloneTransaction(tx)} onLongPress={() => handleToggleRecordSelection(tx.id)} isSelected={selectedRecordIds.includes(tx.id)} fromAccountName={accounts.find(a => a.id === tx.accountId)?.name} toAccountName={accounts.find(a => a.id === tx.toAccountId)?.name} />
+                     ))}
+                     {transactionsToDisplay.length > 0 && (
+                        <button onClick={() => { setActiveView('records'); pushNav(); }} className="w-full py-4 text-blue-500 font-medium text-[10px] uppercase tracking-[0.2em] border-t border-zinc-900/30 hover:bg-zinc-800/20 active:bg-zinc-800/40 transition-colors">Show more</button>
+                     )}
+                   </>
+                 )}
                </div>
-               {transactionsToDisplay.length > 0 && (
-                  <button onClick={() => { setActiveView('records'); pushNav(); }} className="w-full py-4 text-blue-500 font-medium text-[10px] uppercase tracking-[0.2em] border-t border-zinc-900/30 hover:bg-zinc-800/20 active:bg-zinc-800/40 transition-colors">Show more</button>
-               )}
             </div>
           </div>
         )}
@@ -606,22 +593,23 @@ const App: React.FC = () => {
                </div>
                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar px-2 pointer-events-auto">
                  {accounts.map(acc => (
-                   <button 
-                     key={acc.id} 
-                     onClick={() => toggleAccountSelection(acc.id)} 
-                     className={`flex-shrink-0 px-4 py-2 rounded-[4px] text-[10px] font-medium border transition-all uppercase tracking-wider ${selectedAccountIds.includes(acc.id) ? 'bg-blue-600 border-blue-500 text-white shadow-lg' : 'bg-[#1e1e1e] border-zinc-800 text-zinc-500'}`}
-                   >
-                     {acc.name}
-                   </button>
+                   <button key={acc.id} onClick={() => toggleAccountSelection(acc.id)} className={`flex-shrink-0 px-4 py-2 rounded-[4px] text-[10px] font-medium border transition-all uppercase tracking-wider ${selectedAccountIds.includes(acc.id) ? 'bg-blue-600 border-blue-500 text-white shadow-lg' : 'bg-[#1e1e1e] border-zinc-800 text-zinc-500'}`}>{acc.name}</button>
                  ))}
                </div>
              </div>
              <div className="flex-1 overflow-y-auto p-2 pb-32 no-scrollbar">
-               <div className="bg-[#1e1e1e]/80 rounded-[8px] overflow-hidden border border-zinc-900/50">
-                 {transactionsWithPreBalance.map(tx => (
-                   <TransactionItem key={`${tx.id}-${tx.perspective || 'solo'}`} transaction={tx} perspective={tx.perspective} preBalance={tx.preBalance} accountName={accounts.find(a => a.id === (tx.perspective === 'target' ? tx.toAccountId : tx.accountId))?.name || 'Unknown'} onClick={() => handleEditTransaction(tx)} onDelete={() => performDeleteTransaction(tx.id)} onClone={() => handleCloneTransaction(tx)} onLongPress={() => handleToggleRecordSelection(tx.id)} isSelected={selectedRecordIds.includes(tx.id)} fromAccountName={accounts.find(a => a.id === tx.accountId)?.name} toAccountName={accounts.find(a => a.id === tx.toAccountId)?.name} />
-                 ))}
-               </div>
+                {transactionsWithPreBalance.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-zinc-500 gap-3 animate-in fade-in duration-500 opacity-60">
+                    <Search className="w-12 h-12 opacity-10" />
+                    <span className="text-sm font-medium uppercase tracking-[0.2em] opacity-40">No record</span>
+                  </div>
+                ) : (
+                  <div className="bg-[#1e1e1e]/80 rounded-[8px] overflow-hidden border border-zinc-900/50">
+                    {transactionsWithPreBalance.map(tx => (
+                      <TransactionItem key={`${tx.id}-${tx.perspective || 'solo'}`} transaction={tx} perspective={tx.perspective} preBalance={tx.preBalance} accountName={accounts.find(a => a.id === (tx.perspective === 'target' ? tx.toAccountId : tx.accountId))?.name || 'Unknown'} onClick={() => handleEditTransaction(tx)} onDelete={() => performDeleteTransaction(tx.id)} onClone={() => handleCloneTransaction(tx)} onLongPress={() => handleToggleRecordSelection(tx.id)} isSelected={selectedRecordIds.includes(tx.id)} fromAccountName={accounts.find(a => a.id === tx.accountId)?.name} toAccountName={accounts.find(a => a.id === tx.toAccountId)?.name} />
+                    ))}
+                  </div>
+                )}
              </div>
            </div>
         )}
@@ -658,20 +646,12 @@ const App: React.FC = () => {
              </div>
              <div className="flex-1 overflow-y-auto p-2 pb-32 space-y-2 no-scrollbar">
                {sortedCurrencyRates.map(rate => (
-                 <button 
-                  key={rate.code} 
-                  onClick={() => { setEditingRate(rate); setNewRateName(rate.code); setNewRateValue(rate.rateToIRR?.toString() || ''); setIsManagingCurrency(true); pushNav(); }}
-                  className="w-full bg-[#1e1e1e] border border-zinc-800/50 rounded-[4px] overflow-hidden shadow-lg p-5 flex items-center justify-between active:scale-[0.98] transition-all group"
-                 >
+                 <button key={rate.code} onClick={() => { setEditingRate(rate); setNewRateName(rate.code); setNewRateValue(rate.rateToIRR?.toString() || ''); setIsManagingCurrency(true); pushNav(); }} className="w-full bg-[#1e1e1e] border border-zinc-800/50 rounded-[4px] overflow-hidden shadow-lg p-5 flex items-center justify-between active:scale-[0.98] transition-all group">
                     <div className="flex items-center gap-4">
-                      <div className="text-zinc-500 group-active:text-blue-500 transition-colors">
-                        <Banknote className="w-6 h-6" />
-                      </div>
+                      <div className="text-zinc-500 group-active:text-blue-500 transition-colors"><Banknote className="w-6 h-6" /></div>
                       <span className="font-medium text-xl text-zinc-100 group-active:text-blue-500 transition-colors">{rate.code}</span>
                     </div>
-                    <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest text-right">
-                      1 {rate.code} = {rate.rateToIRR?.toLocaleString()} Toman
-                    </span>
+                    <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest text-right">1 {rate.code} = {rate.rateToIRR?.toLocaleString()} Toman</span>
                  </button>
                ))}
              </div>
@@ -679,11 +659,8 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* FAB and Nav - context-aware */}
-      <button 
-        onClick={handleFabAction} 
-        className={`fixed bottom-[114px] right-6 w-14 h-14 bg-blue-600 rounded-[12px] shadow-2xl flex items-center justify-center text-white z-50 hover:scale-105 active:scale-95 transition-all border-t border-white/20 ${selectedRecordIds.length > 0 ? 'scale-0' : 'scale-100'}`}
-      >
+      {/* FAB - Context Aware */}
+      <button onClick={handleFabAction} className={`fixed bottom-[114px] right-6 w-14 h-14 bg-blue-600 rounded-[12px] shadow-2xl flex items-center justify-center text-white z-50 hover:scale-105 active:scale-95 transition-all border-t border-white/20 ${selectedRecordIds.length > 0 ? 'scale-0' : 'scale-100'}`}>
         <Plus className="w-8 h-8" />
       </button>
 
@@ -691,103 +668,66 @@ const App: React.FC = () => {
         <button onClick={() => { setActiveView('dashboard'); }} className={`flex flex-col items-center gap-1 transition-all ${activeView === 'dashboard' ? 'text-blue-500 scale-110' : 'text-zinc-500'}`}><LayoutGrid className="w-6 h-6" /><span className="text-[10px] font-medium uppercase tracking-tighter">Home</span></button>
         <button onClick={() => { setActiveView('records'); pushNav(); }} className={`flex flex-col items-center gap-1 transition-all ${activeView === 'records' ? 'text-blue-500 scale-110' : 'text-zinc-500'}`}><ArrowLeftRight className="w-6 h-6" /><span className="text-[10px] font-medium uppercase tracking-tighter">Records</span></button>
         <button onClick={() => { setActiveView('currency'); pushNav(); }} className={`flex flex-col items-center gap-1 transition-all ${activeView === 'currency' ? 'text-blue-500 scale-110' : 'text-zinc-500'}`}><Coins className="w-6 h-6" /><span className="text-[10px] font-medium uppercase tracking-tighter">Currency</span></button>
-        <button onClick={() => { setActiveView('categories'); pushNav(); }} className={`flex flex-col items-center gap-1 transition-all ${activeView === 'categories' ? 'text-blue-500 scale-110' : 'text-zinc-500'}`}><PieChart className="w-6 h-6" /><span className="text-[10px] font-medium uppercase tracking-tighter">Categorys</span></button>
+        <button onClick={() => { setActiveView('categories'); pushNav(); }} className={`flex flex-col items-center gap-1 transition-all ${activeView === 'categories' ? 'text-blue-500 scale-110' : 'text-zinc-500'}`}><PieChart className="w-6 h-6" /><span className="text-[10px] font-medium uppercase tracking-tighter">Categories</span></button>
       </nav>
 
-      {/* New Category Modal */}
+      {/* Modals */}
       {isAddingCategory && (
         <div className="fixed inset-0 z-[260] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md">
-           <div className="w-full max-w-sm bg-[#1e1e1e] border border-zinc-800 rounded-[10px] p-6 space-y-6 shadow-2xl animate-in zoom-in duration-200">
+           <div className="w-full max-sm max-w-sm bg-[#1e1e1e] border border-zinc-800 rounded-[10px] p-6 space-y-6 shadow-2xl animate-in zoom-in duration-200">
              <div className="flex items-center justify-between">
                <h3 className="text-lg font-medium uppercase tracking-tight text-white">New Category</h3>
-               <button onClick={() => { setIsAddingCategory(false); setNewCategoryName(''); }} className={closeBtn}><X className="w-5 h-5" /></button>
+               <button onClick={() => setIsAddingCategory(false)} className={closeBtn}><X className="w-5 h-5" /></button>
              </div>
-             
              <div className="space-y-4">
                 <div className="space-y-1">
                   <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Category Name</span>
                   <input placeholder="Entertainment" autoFocus value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSaveNewCategory()} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-5 outline-none focus:border-blue-500 font-medium text-white transition-all" />
                 </div>
              </div>
-
-             <div className="pt-2">
-               <button onClick={handleSaveNewCategory} className="w-full h-14 bg-blue-600 rounded-[8px] font-medium text-white shadow-lg active:scale-95 transition-all uppercase tracking-widest text-sm flex items-center justify-center gap-2">
-                 <Check className="w-5 h-5" />
-                 Create Category
-               </button>
-             </div>
+             <button onClick={handleSaveNewCategory} className="w-full h-14 bg-blue-600 rounded-[8px] font-medium text-white shadow-lg active:scale-95 transition-all uppercase tracking-widest text-sm flex items-center justify-center gap-2"><Check className="w-5 h-5" />Create Category</button>
            </div>
         </div>
       )}
 
-      {/* Currency Management Modal */}
       {isManagingCurrency && (
         <div className="fixed inset-0 z-[260] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md">
-           <div className="w-full max-w-sm bg-[#1e1e1e] border border-zinc-800 rounded-[10px] p-6 space-y-6 shadow-2xl animate-in zoom-in duration-200">
+           <div className="w-full max-sm max-w-sm bg-[#1e1e1e] border border-zinc-800 rounded-[10px] p-6 space-y-6 shadow-2xl animate-in zoom-in duration-200">
              <div className="flex items-center justify-between">
                <h3 className="text-lg font-medium uppercase tracking-tight text-white">{editingRate ? 'Edit Rate' : 'New Currency'}</h3>
-               <button onClick={() => { setIsManagingCurrency(false); setEditingRate(null); }} className={closeBtn}><X className="w-5 h-5" /></button>
+               <button onClick={() => setIsManagingCurrency(false)} className={closeBtn}><X className="w-5 h-5" /></button>
              </div>
-             
              <div className="space-y-4">
                 <div className="space-y-1">
-                  <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Currency Code (e.g. USD)</span>
+                  <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Currency Code</span>
                   <input placeholder="USD" value={newRateName} onChange={e => setNewRateName(e.target.value)} disabled={editingRate?.code === 'IRT'} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-5 outline-none focus:border-blue-500 font-medium text-white transition-all disabled:opacity-50" />
                 </div>
                 <div className="space-y-1">
-                  <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Rate to IRT (e.g. 1 USD = ?)</span>
+                  <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Rate to IRT</span>
                   <input type="number" placeholder="Value in Toman" value={newRateValue} onChange={e => setNewRateValue(e.target.value)} disabled={editingRate?.code === 'IRT'} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-5 outline-none focus:border-blue-500 font-medium text-white transition-all disabled:opacity-50" />
                 </div>
              </div>
-
-             <div className="pt-2 flex flex-col gap-3">
-               <button onClick={handleSaveCurrencyRate} className="w-full h-14 bg-blue-600 rounded-[8px] font-medium text-white shadow-lg active:scale-95 transition-all uppercase tracking-widest text-sm flex items-center justify-center gap-2">
-                 <Check className="w-5 h-5" />
-                 {editingRate ? 'Update Rate' : 'Add Currency'}
-               </button>
-               {editingRate && editingRate.code !== 'IRT' && (
-                 <button onClick={() => handleDeleteRate(editingRate.code)} className="w-full h-14 bg-rose-600/10 text-rose-500 border border-rose-600/20 rounded-[8px] font-medium active:bg-rose-600/20 transition-all uppercase tracking-widest text-sm flex items-center justify-center gap-2">
-                   <Trash2 className="w-5 h-5" />
-                   Delete Currency
-                 </button>
-               )}
+             <div className="flex flex-col gap-3">
+               <button onClick={handleSaveCurrencyRate} className="w-full h-14 bg-blue-600 rounded-[8px] font-medium text-white shadow-lg active:scale-95 transition-all uppercase tracking-widest text-sm flex items-center justify-center gap-2"><Check className="w-5 h-5" />{editingRate ? 'Update Rate' : 'Add Currency'}</button>
+               {editingRate && editingRate.code !== 'IRT' && <button onClick={() => handleDeleteRate(editingRate.code)} className="w-full h-14 bg-rose-600/10 text-rose-500 border border-rose-600/20 rounded-[8px] font-medium active:bg-rose-600/20 transition-all uppercase tracking-widest text-sm flex items-center justify-center gap-2"><Trash2 className="w-5 h-5" />Delete Currency</button>}
              </div>
            </div>
         </div>
       )}
 
-      {/* Settings Modal */}
       {showSettings && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md">
-          <div className="w-full max-w-sm bg-[#1e1e1e] border border-zinc-800 rounded-[10px] p-6 space-y-6 shadow-2xl animate-in zoom-in duration-200 flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between sticky top-0 bg-[#1e1e1e] pb-4 shrink-0">
-              <h3 className="text-lg font-medium uppercase tracking-[0.1em] text-zinc-400">Settings</h3>
-              <button onClick={() => setShowSettings(false)} className={closeBtn}><X className="w-5 h-5" /></button>
-            </div>
-            
+          <div className="w-full max-sm max-w-sm bg-[#1e1e1e] border border-zinc-800 rounded-[10px] p-6 space-y-6 shadow-2xl animate-in zoom-in duration-200 flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between sticky top-0 bg-[#1e1e1e] pb-4 shrink-0"><h3 className="text-lg font-medium uppercase tracking-[0.1em] text-zinc-400">Settings</h3><button onClick={() => setShowSettings(false)} className={closeBtn}><X className="w-5 h-5" /></button></div>
             <div className="flex-1 overflow-y-auto no-scrollbar space-y-8 pr-1">
               <div className="space-y-3">
-                <div className="flex items-center justify-between px-2">
-                  <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-[0.2em]">Manage Accounts</span>
-                  <button onClick={() => { setIsAddingAccount(true); setShowSettings(false); pushNav(); }} className={saveBtn}><Plus className="w-5 h-5" /></button>
-                </div>
+                <div className="flex items-center justify-between px-2"><span className="text-[10px] font-medium text-zinc-500 uppercase tracking-[0.2em]">Manage Accounts</span><button onClick={() => { setIsAddingAccount(true); setShowSettings(false); pushNav(); }} className={saveBtn}><Plus className="w-5 h-5" /></button></div>
                 <div className="space-y-2" ref={accountsContainerRef}>
                    {accounts.map((acc, index) => (
-                     <div 
-                        key={acc.id} 
-                        className={`flex items-center justify-between p-4 bg-[#0e0e10] border rounded-[8px] transition-all duration-300 relative ${draggingIdx === index ? 'opacity-40 scale-[1.03] border-blue-500 z-50 shadow-2xl ring-1 ring-blue-500/50' : 'border-zinc-800'}`}
-                     >
+                     <div key={acc.id} className={`flex items-center justify-between p-4 bg-[#0e0e10] border rounded-[8px] transition-all duration-300 relative ${draggingIdx === index ? 'opacity-40 scale-[1.03] border-blue-500 z-50 shadow-2xl ring-1 ring-blue-500/50' : 'border-zinc-800'}`}>
                         <div className="flex items-center gap-3">
-                          <div 
-                            onPointerDown={(e) => onHandlePointerDown(e, index)}
-                            className="p-3 -ml-3 text-zinc-600 hover:text-zinc-300 cursor-grab active:cursor-grabbing touch-none select-none"
-                          >
-                            <GripVertical className="w-5 h-5" />
-                          </div>
-
-                          <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg" style={{ backgroundColor: `${acc.color}20`, color: acc.color }}>
-                            <AccountIcon type={acc.type} className="w-5 h-5" />
-                          </div>
+                          <div onPointerDown={(e) => onHandlePointerDown(e, index)} className="p-3 -ml-3 text-zinc-600 hover:text-zinc-300 cursor-grab active:cursor-grabbing touch-none select-none"><GripVertical className="w-5 h-5" /></div>
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg" style={{ backgroundColor: `${acc.color}20`, color: acc.color }}><AccountIcon type={acc.type} className="w-5 h-5" /></div>
                           <span className="font-medium text-zinc-200">{acc.name}</span>
                         </div>
                         <button onClick={() => handleStartEditAccount(acc)} className="p-2 text-blue-400 bg-blue-400/10 rounded-xl active:bg-blue-400/20 transition-all"><Edit2 className="w-4 h-4" /></button>
@@ -800,7 +740,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Other Modals (Picker UI, Account Modals, etc) ... */}
       {showCategoryPicker && (
         <div className="fixed inset-0 z-[200] bg-[#0e0e10] flex flex-col safe-top animate-in slide-in-from-bottom duration-300 no-scrollbar">
            <header className="p-4 flex items-center justify-between border-b border-zinc-900/50">
@@ -811,9 +750,7 @@ const App: React.FC = () => {
               {selectedMainCategory ? (
                 <>
                   <button onClick={() => { setTxCategory(selectedMainCategory.name); setTxSubCategory(''); setShowCategoryPicker(false); setSelectedMainCategory(null); }} className="w-full flex items-center justify-between p-4 bg-blue-600/10 border border-blue-500/30 rounded-[8px] transition-all"><span className="font-medium text-lg text-blue-500">All {selectedMainCategory.name}</span></button>
-                  {selectedMainCategory.subCategories.map((sub, idx) => (
-                    <button key={idx} onClick={() => { setTxCategory(selectedMainCategory.name); setTxSubCategory(sub); setShowCategoryPicker(false); setSelectedMainCategory(null); }} className="w-full flex items-center justify-between p-4 bg-[#1e1e1e] border border-zinc-800 rounded-[8px] active:scale-[0.98] transition-all"><span className="font-medium text-lg text-zinc-100">{sub}</span></button>
-                  ))}
+                  {selectedMainCategory.subCategories.map((sub, idx) => (<button key={idx} onClick={() => { setTxCategory(selectedMainCategory.name); setTxSubCategory(sub); setShowCategoryPicker(false); setSelectedMainCategory(null); }} className="w-full flex items-center justify-between p-4 bg-[#1e1e1e] border border-zinc-800 rounded-[8px] active:scale-[0.98] transition-all"><span className="font-medium text-lg text-zinc-100">{sub}</span></button>))}
                 </>
               ) : (
                 categories.map(cat => (
@@ -844,81 +781,19 @@ const App: React.FC = () => {
       {(isAddingAccount || editingAccount) && (
         <div className="fixed inset-0 z-[140] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md overflow-y-auto no-scrollbar">
            <div className="w-full max-sm max-w-sm bg-[#1e1e1e] border border-zinc-800 rounded-[10px] p-6 space-y-5 animate-in zoom-in duration-200 shadow-2xl my-auto">
-             <div className="flex justify-between items-center">
-               <h3 className="text-lg font-medium uppercase tracking-tight text-white">{isAddingAccount ? 'New Account' : 'Edit Account'}</h3>
-               <button onClick={() => {setIsAddingAccount(false); setEditingAccount(null); setTempAccount(null);}} className={closeBtn}><X className="w-5 h-5" /></button>
-             </div>
-             
+             <div className="flex justify-between items-center"><h3 className="text-lg font-medium uppercase tracking-tight text-white">{isAddingAccount ? 'New Account' : 'Edit Account'}</h3><button onClick={() => {setIsAddingAccount(false); setEditingAccount(null);}} className={closeBtn}><X className="w-5 h-5" /></button></div>
              <div className="space-y-4">
-                <div className="space-y-1">
-                  <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Account Name</span>
-                  <input placeholder="Account Name" value={isAddingAccount ? newAccName : tempAccount?.name || ''} onChange={e => isAddingAccount ? setNewAccName(e.target.value) : setTempAccount(prev => prev ? {...prev, name: e.target.value} : null)} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-5 outline-none focus:border-blue-500 font-medium text-white transition-all" />
-                </div>
-                <div className="space-y-1">
-                  <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Initial Balance</span>
-                  <input type="number" placeholder="0" value={isAddingAccount ? newAccBalance : tempAccount?.balance || '0'} onChange={e => isAddingAccount ? setNewAccBalance(e.target.value) : setTempAccount(prev => prev ? {...prev, balance: parseFloat(e.target.value) || 0} : null)} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-5 outline-none focus:border-blue-500 font-medium text-white transition-all" />
-                </div>
+                <div className="space-y-1"><span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Account Name</span><input placeholder="Account Name" value={isAddingAccount ? newAccName : tempAccount?.name || ''} onChange={e => isAddingAccount ? setNewAccName(e.target.value) : setTempAccount(prev => prev ? {...prev, name: e.target.value} : null)} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-5 outline-none focus:border-blue-500 font-medium text-white transition-all" /></div>
+                <div className="space-y-1"><span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Initial Balance</span><input type="number" placeholder="0" value={isAddingAccount ? newAccBalance : tempAccount?.balance || '0'} onChange={e => isAddingAccount ? setNewAccBalance(e.target.value) : setTempAccount(prev => prev ? {...prev, balance: parseFloat(e.target.value) || 0} : null)} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-5 outline-none focus:border-blue-500 font-medium text-white transition-all" /></div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Type</span>
-                    <div className="relative w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-3 flex items-center justify-between cursor-pointer hover:border-zinc-600 transition-all active:scale-[0.98]">
-                      <div className="text-blue-500 shrink-0 pointer-events-none"><AccountIcon type={currentAccountType} className="w-5 h-5" /></div>
-                      <select 
-                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                        value={currentAccountType}
-                        onChange={(e) => {
-                          const type = e.target.value as AccountType;
-                          if (isAddingAccount) setNewAccType(type); else if (tempAccount) setTempAccount({...tempAccount, type});
-                        }}
-                      >
-                        {Object.values(AccountType).map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                      <span className="text-[10px] font-medium text-zinc-300 uppercase truncate mx-2 pointer-events-none">{currentAccountType}</span>
-                      <ChevronDown className="w-3 h-3 text-zinc-500 pointer-events-none" />
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Currency</span>
-                    <div className="relative w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-3 flex items-center justify-between cursor-pointer hover:border-zinc-600 transition-all active:scale-[0.98]">
-                      <div className="text-emerald-500 shrink-0 pointer-events-none"><Banknote className="w-5 h-5" /></div>
-                      <select 
-                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                        value={currentAccountCurrency}
-                        onChange={(e) => {
-                          const curr = e.target.value as Currency;
-                          if (isAddingAccount) setNewAccCurrency(curr); else if (tempAccount) setTempAccount({...tempAccount, currency: curr});
-                        }}
-                      >
-                        {currencyRates.map(r => <option key={r.code} value={r.code}>{r.code}</option>)}
-                      </select>
-                      <span className="text-[10px] font-medium text-zinc-300 uppercase truncate mx-2 pointer-events-none">{currentAccountCurrency}</span>
-                      <ChevronDown className="w-3 h-3 text-zinc-500 pointer-events-none" />
-                    </div>
-                  </div>
+                  <div className="space-y-1"><span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Type</span><div className="relative w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-3 flex items-center justify-between cursor-pointer"><AccountIcon type={currentAccountType} className="w-5 h-5 text-blue-500" /><select className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" value={currentAccountType} onChange={e => isAddingAccount ? setNewAccType(e.target.value as AccountType) : setTempAccount(prev => prev ? {...prev, type: e.target.value as AccountType} : null)}>{Object.values(AccountType).map(t => <option key={t} value={t}>{t}</option>)}</select><ChevronDown className="w-3 h-3 text-zinc-500" /></div></div>
+                  <div className="space-y-1"><span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Currency</span><div className="relative w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-3 flex items-center justify-between cursor-pointer"><Banknote className="w-5 h-5 text-emerald-500" /><select className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" value={currentAccountCurrency} onChange={e => isAddingAccount ? setNewAccCurrency(e.target.value as Currency) : setTempAccount(prev => prev ? {...prev, currency: e.target.value as Currency} : null)}>{currencyRates.map(r => <option key={r.code} value={r.code}>{r.code}</option>)}</select><ChevronDown className="w-3 h-3 text-zinc-500" /></div></div>
                 </div>
-                <div className="space-y-1">
-                  <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Account Color</span>
-                  <div onClick={() => colorInputRef.current?.click()} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-5 flex items-center justify-between cursor-pointer hover:border-zinc-600 transition-all active:scale-[0.98]">
-                    <div className="flex items-center gap-3">
-                      <div className="w-6 h-6 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: isAddingAccount ? newAccColor : tempAccount?.color || '#2563eb' }} />
-                      <span className="text-sm font-medium text-zinc-300">Choose Custom Color</span>
-                    </div>
-                    <Palette className="w-4 h-4 text-zinc-500" />
-                    <input ref={colorInputRef} type="color" className="sr-only" value={isAddingAccount ? newAccColor : tempAccount?.color || '#2563eb'} onChange={(e) => isAddingAccount ? setNewAccColor(e.target.value) : setTempAccount(prev => prev ? {...prev, color: e.target.value} : null)} />
-                  </div>
-                </div>
+                <div className="space-y-1"><span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Account Color</span><div onClick={() => colorInputRef.current?.click()} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-5 flex items-center justify-between cursor-pointer"><div className="flex items-center gap-3"><div className="w-6 h-6 rounded-full border border-white/20" style={{ backgroundColor: isAddingAccount ? newAccColor : tempAccount?.color || '#2563eb' }} /><span className="text-sm font-medium text-zinc-300">Choose Custom Color</span></div><Palette className="w-4 h-4 text-zinc-500" /><input ref={colorInputRef} type="color" className="sr-only" value={isAddingAccount ? newAccColor : tempAccount?.color || '#2563eb'} onChange={e => isAddingAccount ? setNewAccColor(e.target.value) : setTempAccount(prev => prev ? {...prev, color: e.target.value} : null)} /></div></div>
              </div>
              <div className="flex flex-col gap-3 pt-2">
-                <button onClick={isAddingAccount ? handleAddAccount : handleUpdateAccount} className="w-full h-14 bg-blue-600 rounded-[8px] font-medium text-white shadow-lg active:scale-95 transition-all uppercase tracking-widest text-sm flex items-center justify-center gap-2">
-                  <Check className="w-5 h-5" />
-                  {isAddingAccount ? 'Create Account' : 'Save Changes'}
-                </button>
-                {editingAccount && (
-                  <button onClick={() => handleDeleteAccount(editingAccount.id)} className="w-full h-14 text-rose-500 font-medium text-sm bg-rose-500/10 rounded-[8px] border border-rose-500/20 active:bg-rose-500/20 transition-all uppercase tracking-widest flex items-center justify-center gap-2">
-                    <Trash2 className="w-5 h-5" />
-                    Delete Account
-                  </button>
-                )}
+                <button onClick={isAddingAccount ? handleAddAccount : handleUpdateAccount} className="w-full h-14 bg-blue-600 rounded-[8px] font-medium text-white shadow-lg active:scale-95 transition-all uppercase tracking-widest text-sm flex items-center justify-center gap-2"><Check className="w-5 h-5" />{isAddingAccount ? 'Create Account' : 'Save Changes'}</button>
+                {editingAccount && <button onClick={() => handleDeleteAccount(editingAccount.id)} className="w-full h-14 text-rose-500 font-medium text-sm bg-rose-500/10 rounded-[8px] border border-rose-500/20 active:bg-rose-500/20 transition-all uppercase tracking-widest flex items-center justify-center gap-2"><Trash2 className="w-5 h-5" />Delete Account</button>}
              </div>
            </div>
         </div>
@@ -927,10 +802,7 @@ const App: React.FC = () => {
       {isAddingTransaction && (
         <div className="fixed inset-0 z-[100] bg-zinc-950 flex flex-col safe-top animate-in slide-in-from-bottom duration-300">
            <div className="bg-blue-600 p-4 shrink-0">
-             <div className="flex items-center justify-between mb-8">
-               <button onClick={() => setIsAddingTransaction(false)} className={closeBtn}><X className="w-5 h-5" /></button>
-               <button onClick={handleSaveTransaction} className={saveBtn}><Check className="w-5 h-5" /></button>
-             </div>
+             <div className="flex items-center justify-between mb-8"><button onClick={() => setIsAddingTransaction(false)} className={closeBtn}><X className="w-5 h-5" /></button><button onClick={handleSaveTransaction} className={saveBtn}><Check className="w-5 h-5" /></button></div>
              <div className="flex gap-1 bg-blue-700/50 p-1 rounded-[10px] border border-blue-400/20">{(['INCOME', 'EXPENSE', 'TRANSFER'] as TransactionType[]).map(type => (<button key={type} onClick={() => { setTxType(type); if(type === 'TRANSFER') setTxCategory('Transfer'); }} className={`flex-1 py-3 text-[10px] font-medium uppercase tracking-widest rounded-[4px] transition-all ${txType === type ? 'bg-blue-600 text-white shadow-lg' : 'text-blue-200 opacity-70'}`}>{type}</button>))}</div>
            </div>
            <div className="flex-1 bg-blue-600 flex flex-col items-center justify-center px-8 relative overflow-hidden"><div className="flex items-center gap-3 text-white mb-8 w-full justify-center"><span className="text-4xl opacity-50 shrink-0">{txType === 'INCOME' ? '+' : txType === 'TRANSFER' ? '' : '−'}</span><span className={`font-light tracking-tighter truncate text-center leading-tight transition-all duration-300 ${getAmountFontSize(txAmountStr)}`}>{formatInputAmount(txAmountStr)}</span><span className="text-xl font-medium opacity-70 shrink-0">{accounts.find(a => a.id === txAccount)?.currency || 'IRT'}</span></div><div className="w-full grid grid-cols-2 gap-3"><button onClick={() => { setShowFromAccountPicker(true); pushNav(); }} className="flex flex-col items-center bg-blue-700/30 p-4 rounded-[10px] border border-blue-400/20"><span className="text-[8px] font-medium text-blue-100 uppercase tracking-widest opacity-60 mb-1">{txType === TransactionType.TRANSFER ? 'From' : 'Account'}</span><span className="text-white font-medium truncate w-full text-center text-sm">{accounts.find(a => a.id === txAccount)?.name || 'Select'}</span></button>{txType === TransactionType.TRANSFER ? (<button onClick={() => { setShowToAccountPicker(true); pushNav(); }} className="flex flex-col items-center bg-blue-700/30 p-4 rounded-[10px] border border-blue-400/20"><span className="text-[8px] font-medium text-blue-100 uppercase tracking-widest opacity-60 mb-1">To</span><span className="text-white font-medium truncate w-full text-center text-sm">{accounts.find(a => a.id === txToAccount)?.name || 'Select'}</span></button>) : (<button onClick={() => { setShowCategoryPicker(true); pushNav(); }} className="flex flex-col items-center bg-blue-700/30 p-4 rounded-[10px] border border-blue-400/20"><span className="text-[8px] font-medium text-blue-100 uppercase tracking-widest opacity-60 mb-1">Category</span><span className="text-white font-medium truncate w-full text-center text-sm">{txSubCategory ? txSubCategory : (txCategory || 'Select')}</span></button>)}</div></div>
@@ -940,16 +812,9 @@ const App: React.FC = () => {
 
       {managingCategory && (
         <div className="fixed inset-0 z-[160] bg-[#0e0e10] flex flex-col p-4 safe-top animate-in slide-in-from-bottom duration-300 no-scrollbar">
-           <div className="flex items-center justify-between mb-8">
-             <button onClick={() => setManagingCategory(null)} className={closeBtn}><ArrowLeft className="w-5 h-5" /></button>
-             <h3 className="text-xl font-medium uppercase tracking-tight">Category Details</h3>
-             <button onClick={() => deleteCategory(managingCategory.id)} className={deleteBtn}><Trash2 className="w-5 h-5" /></button>
-           </div>
+           <div className="flex items-center justify-between mb-8"><button onClick={() => setManagingCategory(null)} className={closeBtn}><ArrowLeft className="w-5 h-5" /></button><h3 className="text-xl font-medium uppercase tracking-tight">Category Details</h3><button onClick={() => deleteCategory(managingCategory.id)} className={deleteBtn}><Trash2 className="w-5 h-5" /></button></div>
            <div className="space-y-4 mb-6"><span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest block ml-2">Category Name</span>{isEditingCategoryName ? (<div className="p-4 bg-[#1e1e1e] border border-zinc-800 rounded-[8px] flex items-center justify-between animate-in fade-in zoom-in duration-200"><div className="flex items-center gap-4 flex-1 mr-2"><div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-zinc-500 shrink-0">{getCategoryIcon(managingCategory.name, "w-5 h-5")}</div><input autoFocus value={editingCategoryValue} onChange={e => setEditingCategoryValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && updateCategoryName(managingCategory.id, editingCategoryValue)} className="bg-transparent border-b border-blue-500 outline-none text-xl font-medium text-white w-full" /></div><div className="flex gap-1 shrink-0"><button onClick={() => updateCategoryName(managingCategory.id, editingCategoryValue)} className="p-2 bg-blue-600 rounded-lg text-white"><Check className="w-4 h-4" /></button><button onClick={() => setIsEditingCategoryName(false)} className="p-2 bg-zinc-700 rounded-lg text-white"><X className="w-4 h-4" /></button></div></div>) : (<div className="p-4 bg-[#1e1e1e] rounded-[8px] border border-zinc-800 flex items-center justify-between group"><div className="flex items-center gap-4"><div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-zinc-500">{getCategoryIcon(managingCategory.name, "w-5 h-5")}</div><span className="text-2xl font-medium text-white">{managingCategory.name}</span></div><button onClick={() => { setIsEditingCategoryName(true); setEditingCategoryValue(managingCategory.name); }} className="p-2 text-zinc-500 hover:text-white"><Edit2 className="w-4 h-4" /></button></div>)}</div>
-           <div className="flex-1 overflow-y-auto px-1 space-y-2 pb-20 no-scrollbar"><div className="flex items-center justify-between mb-2"><span className="text-xs font-medium text-zinc-500 uppercase tracking-widest px-2">Sub-categories</span><button onClick={() => setIsAddingSub(true)} className={saveBtn}><Plus className="w-5 h-5" /></button></div>
-              {isAddingSub && (<div className="p-4 bg-[#1e1e1e] border border-zinc-800 rounded-[8px] flex items-center justify-between animate-in fade-in zoom-in duration-200"><input autoFocus placeholder="Sub-category name..." value={newSubValue} onChange={e => setNewSubValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddSubCategory(managingCategory.id, newSubValue)} className="bg-transparent outline-none font-medium text-white flex-1 mr-2" /><div className="flex items-center gap-1 shrink-0"><button onClick={() => handleAddSubCategory(managingCategory.id, newSubValue)} className="p-2 bg-blue-600 rounded-lg text-white"><Check className="w-4 h-4" /></button><button onClick={() => setIsAddingSub(false)} className="p-2 bg-zinc-700 rounded-lg text-white"><X className="w-4 h-4" /></button></div></div>)}
-              {managingCategory.subCategories.map((sub, idx) => (<div key={idx} className="p-4 bg-[#1e1e1e] rounded-[8px] flex items-center justify-between border border-zinc-800">{editingSubIndex === idx ? (<div className="flex items-center justify-between w-full"><input autoFocus value={editingSubValue} onChange={e => setEditingSubValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveSubCategoryEdit(managingCategory.id, idx, editingSubValue)} className="bg-transparent border-b border-blue-500 outline-none font-medium text-white flex-1 mr-2" /><div className="flex gap-1 shrink-0"><button onClick={() => saveSubCategoryEdit(managingCategory.id, idx, editingSubValue)} className="p-2 bg-blue-600 rounded-lg text-white"><Check className="w-4 h-4" /></button><button onClick={() => setEditingSubIndex(null)} className="p-2 bg-zinc-700 rounded-lg text-white"><X className="w-4 h-4" /></button></div></div>) : (<><span className="font-medium text-zinc-200">{sub}</span><div className="flex gap-2"><button onClick={() => { setEditingSubIndex(idx); setEditingSubValue(sub); }} className="p-2 text-zinc-500"><Edit2 className="w-4 h-4" /></button><button onClick={() => handleDeleteSubCategory(managingCategory.id, idx)} className="p-2 text-zinc-500"><Trash2 className="w-4 h-4" /></button></div></>)}</div>))}
-           </div>
+           <div className="flex-1 overflow-y-auto px-1 space-y-2 pb-20 no-scrollbar"><div className="flex items-center justify-between mb-2"><span className="text-xs font-medium text-zinc-500 uppercase tracking-widest px-2">Sub-categories</span><button onClick={() => setIsAddingSub(true)} className={saveBtn}><Plus className="w-5 h-5" /></button></div>{isAddingSub && (<div className="p-4 bg-[#1e1e1e] border border-zinc-800 rounded-[8px] flex items-center justify-between animate-in fade-in zoom-in duration-200"><input autoFocus placeholder="Sub-category name..." value={newSubValue} onChange={e => setNewSubValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddSubCategory(managingCategory.id, newSubValue)} className="bg-transparent outline-none font-medium text-white flex-1 mr-2" /><div className="flex items-center gap-1 shrink-0"><button onClick={() => handleAddSubCategory(managingCategory.id, newSubValue)} className="p-2 bg-blue-600 rounded-lg text-white"><Check className="w-4 h-4" /></button><button onClick={() => setIsAddingSub(false)} className="p-2 bg-zinc-700 rounded-lg text-white"><X className="w-4 h-4" /></button></div></div>)}{managingCategory.subCategories.map((sub, idx) => (<div key={idx} className="p-4 bg-[#1e1e1e] rounded-[8px] flex items-center justify-between border border-zinc-800">{editingSubIndex === idx ? (<div className="flex items-center justify-between w-full"><input autoFocus value={editingSubValue} onChange={e => setEditingSubValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveSubCategoryEdit(managingCategory.id, idx, editingSubValue)} className="bg-transparent border-b border-blue-500 outline-none font-medium text-white flex-1 mr-2" /><div className="flex gap-1 shrink-0"><button onClick={() => saveSubCategoryEdit(managingCategory.id, idx, editingSubValue)} className="p-2 bg-blue-600 rounded-lg text-white"><Check className="w-4 h-4" /></button><button onClick={() => setEditingSubIndex(null)} className="p-2 bg-zinc-700 rounded-lg text-white"><X className="w-4 h-4" /></button></div></div>) : (<><span className="font-medium text-zinc-200">{sub}</span><div className="flex gap-2"><button onClick={() => { setEditingSubIndex(idx); setEditingSubValue(sub); }} className="p-2 text-zinc-500"><Edit2 className="w-4 h-4" /></button><button onClick={() => handleDeleteSubCategory(managingCategory.id, idx)} className="p-2 text-zinc-500"><Trash2 className="w-4 h-4" /></button></div></>)}</div>))}</div>
         </div>
       )}
     </div>
