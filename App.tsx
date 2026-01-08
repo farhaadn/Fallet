@@ -54,6 +54,9 @@ const App: React.FC = () => {
   const [newRateName, setNewRateName] = useState('');
   const [newRateValue, setNewRateValue] = useState('');
 
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showFromAccountPicker, setShowFromAccountPicker] = useState(false);
   const [showToAccountPicker, setShowToAccountPicker] = useState(false);
@@ -407,6 +410,13 @@ const App: React.FC = () => {
     setCurrencyRates(prev => prev.filter(r => r.code !== code));
   };
 
+  const handleSaveNewCategory = () => {
+    if (!newCategoryName) return;
+    setCategories(prev => [...prev, { id: Date.now().toString(), name: newCategoryName, subCategories: [] }]);
+    setIsAddingCategory(false);
+    setNewCategoryName('');
+  };
+
   const formatInputAmount = (str: string) => {
     if (/[\+\-\*\/]/.test(str)) return str;
     const num = parseFloat(str);
@@ -466,8 +476,9 @@ const App: React.FC = () => {
       setNewRateValue('');
       pushNav();
     } else if (activeView === 'categories') {
-      const n = prompt("New category name:");
-      if (n) setCategories(prev => [...prev, { id: Date.now().toString(), name: n, subCategories: [] }]);
+      setIsAddingCategory(true);
+      setNewCategoryName('');
+      pushNav();
     }
   };
 
@@ -622,7 +633,6 @@ const App: React.FC = () => {
                  <button onClick={() => setActiveView('dashboard')} className="p-1 text-zinc-400"><ArrowLeft className="w-6 h-6" /></button>
                  <h2 className="text-xl font-medium">Categories</h2>
                </div>
-               {/* Redundant header button removed, FAB now handles adding categories */}
              </div>
              <div className="flex-1 overflow-y-auto p-2 pb-32 space-y-2 no-scrollbar">
                {categories.map(cat => (
@@ -645,7 +655,6 @@ const App: React.FC = () => {
                  <button onClick={() => setActiveView('dashboard')} className="p-1 text-zinc-400"><ArrowLeft className="w-6 h-6" /></button>
                  <h2 className="text-xl font-medium">Currency</h2>
                </div>
-               {/* Redundant header button removed based on user instructions */}
              </div>
              <div className="flex-1 overflow-y-auto p-2 pb-32 space-y-2 no-scrollbar">
                {sortedCurrencyRates.map(rate => (
@@ -670,7 +679,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* FAB and Nav - now context-aware */}
+      {/* FAB and Nav - context-aware */}
       <button 
         onClick={handleFabAction} 
         className={`fixed bottom-[114px] right-6 w-14 h-14 bg-blue-600 rounded-[12px] shadow-2xl flex items-center justify-center text-white z-50 hover:scale-105 active:scale-95 transition-all border-t border-white/20 ${selectedRecordIds.length > 0 ? 'scale-0' : 'scale-100'}`}
@@ -684,6 +693,32 @@ const App: React.FC = () => {
         <button onClick={() => { setActiveView('currency'); pushNav(); }} className={`flex flex-col items-center gap-1 transition-all ${activeView === 'currency' ? 'text-blue-500 scale-110' : 'text-zinc-500'}`}><Coins className="w-6 h-6" /><span className="text-[10px] font-medium uppercase tracking-tighter">Currency</span></button>
         <button onClick={() => { setActiveView('categories'); pushNav(); }} className={`flex flex-col items-center gap-1 transition-all ${activeView === 'categories' ? 'text-blue-500 scale-110' : 'text-zinc-500'}`}><PieChart className="w-6 h-6" /><span className="text-[10px] font-medium uppercase tracking-tighter">Categorys</span></button>
       </nav>
+
+      {/* New Category Modal */}
+      {isAddingCategory && (
+        <div className="fixed inset-0 z-[260] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md">
+           <div className="w-full max-w-sm bg-[#1e1e1e] border border-zinc-800 rounded-[10px] p-6 space-y-6 shadow-2xl animate-in zoom-in duration-200">
+             <div className="flex items-center justify-between">
+               <h3 className="text-lg font-medium uppercase tracking-tight text-white">New Category</h3>
+               <button onClick={() => { setIsAddingCategory(false); setNewCategoryName(''); }} className={closeBtn}><X className="w-5 h-5" /></button>
+             </div>
+             
+             <div className="space-y-4">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Category Name</span>
+                  <input placeholder="Entertainment" autoFocus value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSaveNewCategory()} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-5 outline-none focus:border-blue-500 font-medium text-white transition-all" />
+                </div>
+             </div>
+
+             <div className="pt-2">
+               <button onClick={handleSaveNewCategory} className="w-full h-14 bg-blue-600 rounded-[8px] font-medium text-white shadow-lg active:scale-95 transition-all uppercase tracking-widest text-sm flex items-center justify-center gap-2">
+                 <Check className="w-5 h-5" />
+                 Create Category
+               </button>
+             </div>
+           </div>
+        </div>
+      )}
 
       {/* Currency Management Modal */}
       {isManagingCurrency && (
@@ -743,7 +778,6 @@ const App: React.FC = () => {
                         className={`flex items-center justify-between p-4 bg-[#0e0e10] border rounded-[8px] transition-all duration-300 relative ${draggingIdx === index ? 'opacity-40 scale-[1.03] border-blue-500 z-50 shadow-2xl ring-1 ring-blue-500/50' : 'border-zinc-800'}`}
                      >
                         <div className="flex items-center gap-3">
-                          {/* Modern Reorder Handle with touch-action: none to prevent browser pull-to-refresh */}
                           <div 
                             onPointerDown={(e) => onHandlePointerDown(e, index)}
                             className="p-3 -ml-3 text-zinc-600 hover:text-zinc-300 cursor-grab active:cursor-grabbing touch-none select-none"
@@ -766,7 +800,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Category Picker Modal */}
+      {/* Other Modals (Picker UI, Account Modals, etc) ... */}
       {showCategoryPicker && (
         <div className="fixed inset-0 z-[200] bg-[#0e0e10] flex flex-col safe-top animate-in slide-in-from-bottom duration-300 no-scrollbar">
            <header className="p-4 flex items-center justify-between border-b border-zinc-900/50">
@@ -793,7 +827,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Account Picker Modals (Records selection) */}
       {(showFromAccountPicker || showToAccountPicker) && (
         <div className="fixed inset-0 z-[220] bg-[#0e0e10] flex flex-col safe-top animate-in slide-in-from-bottom duration-300 no-scrollbar">
            <header className="p-4 flex items-center justify-between border-b border-zinc-900/50">
@@ -808,10 +841,9 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Account Create/Edit Modal with Dropdowns */}
       {(isAddingAccount || editingAccount) && (
         <div className="fixed inset-0 z-[140] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md overflow-y-auto no-scrollbar">
-           <div className="w-full max-w-sm bg-[#1e1e1e] border border-zinc-800 rounded-[10px] p-6 space-y-5 animate-in zoom-in duration-200 shadow-2xl my-auto">
+           <div className="w-full max-sm max-w-sm bg-[#1e1e1e] border border-zinc-800 rounded-[10px] p-6 space-y-5 animate-in zoom-in duration-200 shadow-2xl my-auto">
              <div className="flex justify-between items-center">
                <h3 className="text-lg font-medium uppercase tracking-tight text-white">{isAddingAccount ? 'New Account' : 'Edit Account'}</h3>
                <button onClick={() => {setIsAddingAccount(false); setEditingAccount(null); setTempAccount(null);}} className={closeBtn}><X className="w-5 h-5" /></button>
@@ -892,7 +924,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Transaction Entry Modal */}
       {isAddingTransaction && (
         <div className="fixed inset-0 z-[100] bg-zinc-950 flex flex-col safe-top animate-in slide-in-from-bottom duration-300">
            <div className="bg-blue-600 p-4 shrink-0">
@@ -907,7 +938,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Category Management Modal */}
       {managingCategory && (
         <div className="fixed inset-0 z-[160] bg-[#0e0e10] flex flex-col p-4 safe-top animate-in slide-in-from-bottom duration-300 no-scrollbar">
            <div className="flex items-center justify-between mb-8">
