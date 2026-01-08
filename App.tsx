@@ -62,6 +62,10 @@ const App: React.FC = () => {
   const [showToAccountPicker, setShowToAccountPicker] = useState(false);
   const [selectedMainCategory, setSelectedMainCategory] = useState<Category | null>(null);
 
+  // New Custom Pickers for Account modal
+  const [showAccountTypeSheet, setShowAccountTypeSheet] = useState(false);
+  const [showCurrencySheet, setShowCurrencySheet] = useState(false);
+
   const [tempAccount, setTempAccount] = useState<Account | null>(null);
   const [isEditingCategoryName, setIsEditingCategoryName] = useState(false);
   const [editingCategoryValue, setEditingCategoryValue] = useState('');
@@ -786,8 +790,22 @@ const App: React.FC = () => {
                 <div className="space-y-1"><span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Account Name</span><input placeholder="Account Name" value={isAddingAccount ? newAccName : tempAccount?.name || ''} onChange={e => isAddingAccount ? setNewAccName(e.target.value) : setTempAccount(prev => prev ? {...prev, name: e.target.value} : null)} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-5 outline-none focus:border-blue-500 font-medium text-white transition-all" /></div>
                 <div className="space-y-1"><span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Initial Balance</span><input type="number" placeholder="0" value={isAddingAccount ? newAccBalance : tempAccount?.balance || '0'} onChange={e => isAddingAccount ? setNewAccBalance(e.target.value) : setTempAccount(prev => prev ? {...prev, balance: parseFloat(e.target.value) || 0} : null)} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-5 outline-none focus:border-blue-500 font-medium text-white transition-all" /></div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1"><span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Type</span><div className="relative w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-3 flex items-center justify-between cursor-pointer"><AccountIcon type={currentAccountType} className="w-5 h-5 text-blue-500" /><select className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" value={currentAccountType} onChange={e => isAddingAccount ? setNewAccType(e.target.value as AccountType) : setTempAccount(prev => prev ? {...prev, type: e.target.value as AccountType} : null)}>{Object.values(AccountType).map(t => <option key={t} value={t}>{t}</option>)}</select><ChevronDown className="w-3 h-3 text-zinc-500" /></div></div>
-                  <div className="space-y-1"><span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Currency</span><div className="relative w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-3 flex items-center justify-between cursor-pointer"><Banknote className="w-5 h-5 text-emerald-500" /><select className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" value={currentAccountCurrency} onChange={e => isAddingAccount ? setNewAccCurrency(e.target.value as Currency) : setTempAccount(prev => prev ? {...prev, currency: e.target.value as Currency} : null)}>{currencyRates.map(r => <option key={r.code} value={r.code}>{r.code}</option>)}</select><ChevronDown className="w-3 h-3 text-zinc-500" /></div></div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Type</span>
+                    <button onClick={() => setShowAccountTypeSheet(true)} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-3 flex items-center justify-between cursor-pointer active:scale-95 transition-all">
+                      <AccountIcon type={currentAccountType} className="w-5 h-5 text-blue-500" />
+                      <span className="text-[13px] font-medium text-zinc-100 uppercase mx-2 truncate">{currentAccountType}</span>
+                      <ChevronDown className="w-4 h-4 text-zinc-500" />
+                    </button>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Currency</span>
+                    <button onClick={() => setShowCurrencySheet(true)} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-3 flex items-center justify-between cursor-pointer active:scale-95 transition-all">
+                      <Banknote className="w-5 h-5 text-emerald-500" />
+                      <span className="text-[13px] font-medium text-zinc-100 uppercase mx-2 truncate">{currentAccountCurrency}</span>
+                      <ChevronDown className="w-4 h-4 text-zinc-500" />
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-1"><span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Account Color</span><div onClick={() => colorInputRef.current?.click()} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-5 flex items-center justify-between cursor-pointer"><div className="flex items-center gap-3"><div className="w-6 h-6 rounded-full border border-white/20" style={{ backgroundColor: isAddingAccount ? newAccColor : tempAccount?.color || '#2563eb' }} /><span className="text-sm font-medium text-zinc-300">Choose Custom Color</span></div><Palette className="w-4 h-4 text-zinc-500" /><input ref={colorInputRef} type="color" className="sr-only" value={isAddingAccount ? newAccColor : tempAccount?.color || '#2563eb'} onChange={e => isAddingAccount ? setNewAccColor(e.target.value) : setTempAccount(prev => prev ? {...prev, color: e.target.value} : null)} /></div></div>
              </div>
@@ -796,6 +814,72 @@ const App: React.FC = () => {
                 {editingAccount && <button onClick={() => handleDeleteAccount(editingAccount.id)} className="w-full h-14 text-rose-500 font-medium text-sm bg-rose-500/10 rounded-[8px] border border-rose-500/20 active:bg-rose-500/20 transition-all uppercase tracking-widest flex items-center justify-center gap-2"><Trash2 className="w-5 h-5" />Delete Account</button>}
              </div>
            </div>
+        </div>
+      )}
+
+      {/* Account Type Selection Sheet */}
+      {showAccountTypeSheet && (
+        <div className="fixed inset-0 z-[280] flex items-end justify-center p-0 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div onClick={() => setShowAccountTypeSheet(false)} className="absolute inset-0" />
+          <div className="w-full bg-[#1e1e1e] border-t border-zinc-800 rounded-t-[20px] p-6 pb-12 shadow-2xl animate-in slide-in-from-bottom duration-300 relative z-10">
+            <div className="w-12 h-1 bg-zinc-700 rounded-full mx-auto mb-6 opacity-30" />
+            <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-500 mb-6 px-1">Select Type</h3>
+            <div className="space-y-1">
+              {Object.values(AccountType).map(type => (
+                <button 
+                  key={type} 
+                  onClick={() => {
+                    if (isAddingAccount) setNewAccType(type);
+                    else if (tempAccount) setTempAccount({...tempAccount, type});
+                    setShowAccountTypeSheet(false);
+                    if ('vibrate' in navigator) navigator.vibrate(10);
+                  }}
+                  className={`w-full flex items-center justify-between p-4 rounded-[12px] transition-all ${currentAccountType === type ? 'bg-blue-600/10' : 'hover:bg-white/5 active:bg-white/5'}`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`${currentAccountType === type ? 'text-blue-500' : 'text-zinc-500'}`}><AccountIcon type={type} className="w-5 h-5" /></div>
+                    <span className={`text-[15px] font-medium uppercase tracking-tight ${currentAccountType === type ? 'text-blue-500' : 'text-zinc-300'}`}>{type}</span>
+                  </div>
+                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${currentAccountType === type ? 'border-blue-500' : 'border-zinc-700'}`}>
+                    {currentAccountType === type && <div className="w-3 h-3 rounded-full bg-blue-500" />}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Currency Selection Sheet */}
+      {showCurrencySheet && (
+        <div className="fixed inset-0 z-[280] flex items-end justify-center p-0 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div onClick={() => setShowCurrencySheet(false)} className="absolute inset-0" />
+          <div className="w-full bg-[#1e1e1e] border-t border-zinc-800 rounded-t-[20px] p-6 pb-12 shadow-2xl animate-in slide-in-from-bottom duration-300 relative z-10 flex flex-col max-h-[70vh]">
+            <div className="w-12 h-1 bg-zinc-700 rounded-full mx-auto mb-6 opacity-30" />
+            <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-500 mb-6 px-1">Select Currency</h3>
+            <div className="space-y-1 overflow-y-auto no-scrollbar">
+              {currencyRates.map(rate => (
+                <button 
+                  key={rate.code} 
+                  onClick={() => {
+                    if (isAddingAccount) setNewAccCurrency(rate.code);
+                    else if (tempAccount) setTempAccount({...tempAccount, currency: rate.code});
+                    setShowCurrencySheet(false);
+                    if ('vibrate' in navigator) navigator.vibrate(10);
+                  }}
+                  className={`w-full flex items-center justify-between p-4 rounded-[12px] transition-all ${currentAccountCurrency === rate.code ? 'bg-blue-600/10' : 'hover:bg-white/5 active:bg-white/5'}`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`${currentAccountCurrency === rate.code ? 'text-blue-500' : 'text-zinc-500'}`}><Banknote className="w-5 h-5" /></div>
+                    <span className={`text-[15px] font-medium uppercase tracking-tight ${currentAccountCurrency === rate.code ? 'text-blue-500' : 'text-zinc-300'}`}>{rate.code}</span>
+                  </div>
+                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${currentAccountCurrency === rate.code ? 'border-blue-500' : 'border-zinc-700'}`}>
+                    {currentAccountCurrency === rate.code && <div className="w-3 h-3 rounded-full bg-blue-500" />}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
