@@ -451,6 +451,10 @@ const App: React.FC = () => {
   const currentAccountType = isAddingAccount ? newAccType : tempAccount?.type || AccountType.BANK;
   const currentAccountCurrency = isAddingAccount ? newAccCurrency : tempAccount?.currency || 'IRT';
 
+  const sortedCurrencyRates = useMemo(() => {
+    return [...currencyRates].sort((a, b) => a.code === 'IRT' ? -1 : b.code === 'IRT' ? 1 : 0);
+  }, [currencyRates]);
+
   // Optimized Global Pointer Drag Reordering
   const onHandlePointerDown = (e: React.PointerEvent, index: number) => {
     setDraggingIdx(index);
@@ -628,7 +632,7 @@ const App: React.FC = () => {
                <button onClick={() => { setIsManagingCurrency(true); pushNav(); }} className={saveBtn}><Plus className="w-5 h-5" /></button>
              </div>
              <div className="flex-1 overflow-y-auto p-2 pb-32 space-y-2 no-scrollbar">
-               {currencyRates.map(rate => (
+               {sortedCurrencyRates.map(rate => (
                  <button 
                   key={rate.code} 
                   onClick={() => { setEditingRate(rate); setNewRateName(rate.code); setNewRateValue(rate.rateToIRR?.toString() || ''); setIsManagingCurrency(true); pushNav(); }}
@@ -737,55 +741,12 @@ const App: React.FC = () => {
                 </div>
               </div>
             </div>
-
-            <div className="pt-4 border-t border-zinc-800 shrink-0">
-              <button onClick={() => { setIsAddingAccount(true); setShowSettings(false); pushNav(); }} className="w-full py-4 bg-blue-600 font-medium text-white rounded-[4px] shadow-lg active:scale-95 transition-all uppercase tracking-[0.15em] text-[11px]">New Account</button>
-            </div>
+            {/* Redundant bottom button removed based on user image instructions */}
           </div>
         </div>
       )}
 
-      {/* Account Type Picker Modal */}
-      {showAccountTypePicker && (
-        <div className="fixed inset-0 z-[250] bg-[#0e0e10] flex flex-col safe-top animate-in slide-in-from-bottom duration-300 no-scrollbar">
-           <header className="p-4 flex items-center justify-between border-b border-zinc-900/50">
-             <div className="flex items-center gap-4"><Wallet className="w-6 h-6 text-blue-500" /><h3 className="text-lg font-medium uppercase tracking-tight">Account Type</h3></div>
-             <button onClick={() => setShowAccountTypePicker(false)} className={closeBtn}><X className="w-5 h-5" /></button>
-           </header>
-           <div className="flex-1 overflow-y-auto no-scrollbar px-2 py-4 space-y-2 pb-24">
-              {Object.values(AccountType).map(type => (
-                <button key={type} onClick={() => { if (isAddingAccount) setNewAccType(type); else if (tempAccount) setTempAccount({...tempAccount, type}); setShowAccountTypePicker(false); }} className={`w-full flex items-center justify-between p-4 rounded-[8px] border transition-all active:scale-[0.98] ${currentAccountType === type ? 'bg-blue-600/10 border-blue-500/50' : 'bg-[#1e1e1e] border-zinc-800'}`}>
-                  <div className="flex items-center gap-4">
-                    <div className={currentAccountType === type ? 'text-blue-500' : 'text-zinc-500'}><AccountIcon type={type} className="w-6 h-6" /></div>
-                    <span className={`font-medium text-lg uppercase tracking-wider ${currentAccountType === type ? 'text-blue-500' : 'text-zinc-100'}`}>{type}</span>
-                  </div>
-                  {currentAccountType === type && <Check className="w-5 h-5 text-blue-500" />}
-                </button>
-              ))}
-           </div>
-        </div>
-      )}
-
-      {/* Currency Picker Modal (Used in Account creation) */}
-      {showCurrencyPicker && (
-        <div className="fixed inset-0 z-[250] bg-[#0e0e10] flex flex-col safe-top animate-in slide-in-from-bottom duration-300 no-scrollbar">
-           <header className="p-4 flex items-center justify-between border-b border-zinc-900/50">
-             <div className="flex items-center gap-4"><Globe className="w-6 h-6 text-blue-500" /><h3 className="text-lg font-medium uppercase tracking-tight">Account Currency</h3></div>
-             <button onClick={() => setShowCurrencyPicker(false)} className={closeBtn}><X className="w-5 h-5" /></button>
-           </header>
-           <div className="flex-1 overflow-y-auto no-scrollbar px-2 py-4 space-y-2 pb-24">
-              {currencyRates.map(rate => (
-                <button key={rate.code} onClick={() => { if (isAddingAccount) setNewAccCurrency(rate.code); else if (tempAccount) setTempAccount({...tempAccount, currency: rate.code}); setShowCurrencyPicker(false); }} className={`w-full flex items-center justify-between p-4 rounded-[8px] border transition-all active:scale-[0.98] ${currentAccountCurrency === rate.code ? 'bg-blue-600/10 border-blue-500/50' : 'bg-[#1e1e1e] border-zinc-800'}`}>
-                  <div className="flex items-center gap-4">
-                    <div className={currentAccountCurrency === rate.code ? 'text-blue-500' : 'text-zinc-500'}><Banknote className="w-6 h-6" /></div>
-                    <span className={`font-medium text-lg uppercase tracking-wider ${currentAccountCurrency === rate.code ? 'text-blue-500' : 'text-zinc-100'}`}>{rate.code}</span>
-                  </div>
-                  {currentAccountCurrency === rate.code && <Check className="w-5 h-5 text-blue-500" />}
-                </button>
-              ))}
-           </div>
-        </div>
-      )}
+      {/* Account Picker UI converted to Dropdowns in the Modal below */}
 
       {/* Category Picker Modal */}
       {showCategoryPicker && (
@@ -829,7 +790,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Account Create/Edit Modal */}
+      {/* Account Create/Edit Modal with Dropdowns */}
       {(isAddingAccount || editingAccount) && (
         <div className="fixed inset-0 z-[140] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md overflow-y-auto no-scrollbar">
            <div className="w-full max-w-sm bg-[#1e1e1e] border border-zinc-800 rounded-[10px] p-6 space-y-5 animate-in zoom-in duration-200 shadow-2xl my-auto">
@@ -850,18 +811,38 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Type</span>
-                    <div onClick={() => { setShowAccountTypePicker(true); pushNav(); }} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-3 flex items-center justify-between cursor-pointer hover:border-zinc-600 transition-all active:scale-[0.98]">
-                      <div className="text-blue-500 shrink-0"><AccountIcon type={currentAccountType} className="w-5 h-5" /></div>
-                      <span className="text-[10px] font-medium text-zinc-300 uppercase truncate mx-2">{currentAccountType}</span>
-                      <ChevronDown className="w-3 h-3 text-zinc-500" />
+                    <div className="relative w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-3 flex items-center justify-between cursor-pointer hover:border-zinc-600 transition-all active:scale-[0.98]">
+                      <div className="text-blue-500 shrink-0 pointer-events-none"><AccountIcon type={currentAccountType} className="w-5 h-5" /></div>
+                      <select 
+                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                        value={currentAccountType}
+                        onChange={(e) => {
+                          const type = e.target.value as AccountType;
+                          if (isAddingAccount) setNewAccType(type); else if (tempAccount) setTempAccount({...tempAccount, type});
+                        }}
+                      >
+                        {Object.values(AccountType).map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <span className="text-[10px] font-medium text-zinc-300 uppercase truncate mx-2 pointer-events-none">{currentAccountType}</span>
+                      <ChevronDown className="w-3 h-3 text-zinc-500 pointer-events-none" />
                     </div>
                   </div>
                   <div className="space-y-1">
                     <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Currency</span>
-                    <div onClick={() => { setShowCurrencyPicker(true); pushNav(); }} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-3 flex items-center justify-between cursor-pointer hover:border-zinc-600 transition-all active:scale-[0.98]">
-                      <div className="text-emerald-500 shrink-0"><Banknote className="w-5 h-5" /></div>
-                      <span className="text-[10px] font-medium text-zinc-300 uppercase truncate mx-2">{currentAccountCurrency}</span>
-                      <ChevronDown className="w-3 h-3 text-zinc-500" />
+                    <div className="relative w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-3 flex items-center justify-between cursor-pointer hover:border-zinc-600 transition-all active:scale-[0.98]">
+                      <div className="text-emerald-500 shrink-0 pointer-events-none"><Banknote className="w-5 h-5" /></div>
+                      <select 
+                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                        value={currentAccountCurrency}
+                        onChange={(e) => {
+                          const curr = e.target.value as Currency;
+                          if (isAddingAccount) setNewAccCurrency(curr); else if (tempAccount) setTempAccount({...tempAccount, currency: curr});
+                        }}
+                      >
+                        {currencyRates.map(r => <option key={r.code} value={r.code}>{r.code}</option>)}
+                      </select>
+                      <span className="text-[10px] font-medium text-zinc-300 uppercase truncate mx-2 pointer-events-none">{currentAccountCurrency}</span>
+                      <ChevronDown className="w-3 h-3 text-zinc-500 pointer-events-none" />
                     </div>
                   </div>
                 </div>
