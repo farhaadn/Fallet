@@ -455,6 +455,22 @@ const App: React.FC = () => {
     return [...currencyRates].sort((a, b) => a.code === 'IRT' ? -1 : b.code === 'IRT' ? 1 : 0);
   }, [currencyRates]);
 
+  // Unified FAB Action
+  const handleFabAction = () => {
+    if (activeView === 'dashboard' || activeView === 'records') {
+      handleOpenNewTransaction();
+    } else if (activeView === 'currency') {
+      setIsManagingCurrency(true);
+      setEditingRate(null);
+      setNewRateName('');
+      setNewRateValue('');
+      pushNav();
+    } else if (activeView === 'categories') {
+      const n = prompt("New category name:");
+      if (n) setCategories(prev => [...prev, { id: Date.now().toString(), name: n, subCategories: [] }]);
+    }
+  };
+
   // Optimized Global Pointer Drag Reordering
   const onHandlePointerDown = (e: React.PointerEvent, index: number) => {
     setDraggingIdx(index);
@@ -606,7 +622,7 @@ const App: React.FC = () => {
                  <button onClick={() => setActiveView('dashboard')} className="p-1 text-zinc-400"><ArrowLeft className="w-6 h-6" /></button>
                  <h2 className="text-xl font-medium">Categories</h2>
                </div>
-               <button onClick={() => { const n = prompt("New category name:"); if(n) setCategories(prev => [...prev, { id: Date.now().toString(), name: n, subCategories: [] }]); }} className={saveBtn}><Plus className="w-5 h-5" /></button>
+               {/* Redundant header button removed, FAB now handles adding categories */}
              </div>
              <div className="flex-1 overflow-y-auto p-2 pb-32 space-y-2 no-scrollbar">
                {categories.map(cat => (
@@ -629,7 +645,7 @@ const App: React.FC = () => {
                  <button onClick={() => setActiveView('dashboard')} className="p-1 text-zinc-400"><ArrowLeft className="w-6 h-6" /></button>
                  <h2 className="text-xl font-medium">Currency</h2>
                </div>
-               <button onClick={() => { setIsManagingCurrency(true); pushNav(); }} className={saveBtn}><Plus className="w-5 h-5" /></button>
+               {/* Redundant header button removed based on user instructions */}
              </div>
              <div className="flex-1 overflow-y-auto p-2 pb-32 space-y-2 no-scrollbar">
                {sortedCurrencyRates.map(rate => (
@@ -654,14 +670,19 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* FAB and Nav */}
-      <button onClick={handleOpenNewTransaction} className={`fixed bottom-[114px] right-6 w-14 h-14 bg-blue-600 rounded-[12px] shadow-2xl flex items-center justify-center text-white z-50 hover:scale-105 active:scale-95 transition-all border-t border-white/20 ${selectedRecordIds.length > 0 ? 'scale-0' : 'scale-100'}`}><Plus className="w-8 h-8" /></button>
+      {/* FAB and Nav - now context-aware */}
+      <button 
+        onClick={handleFabAction} 
+        className={`fixed bottom-[114px] right-6 w-14 h-14 bg-blue-600 rounded-[12px] shadow-2xl flex items-center justify-center text-white z-50 hover:scale-105 active:scale-95 transition-all border-t border-white/20 ${selectedRecordIds.length > 0 ? 'scale-0' : 'scale-100'}`}
+      >
+        <Plus className="w-8 h-8" />
+      </button>
 
       <nav className={`fixed bottom-0 left-0 right-0 bg-[#0e0e10]/95 backdrop-blur-2xl border-t border-zinc-900 flex justify-around p-3 pb-10 z-40 safe-bottom transition-transform duration-300 ${selectedRecordIds.length > 0 ? 'translate-y-full' : 'translate-y-0'}`}>
         <button onClick={() => { setActiveView('dashboard'); }} className={`flex flex-col items-center gap-1 transition-all ${activeView === 'dashboard' ? 'text-blue-500 scale-110' : 'text-zinc-500'}`}><LayoutGrid className="w-6 h-6" /><span className="text-[10px] font-medium uppercase tracking-tighter">Home</span></button>
         <button onClick={() => { setActiveView('records'); pushNav(); }} className={`flex flex-col items-center gap-1 transition-all ${activeView === 'records' ? 'text-blue-500 scale-110' : 'text-zinc-500'}`}><ArrowLeftRight className="w-6 h-6" /><span className="text-[10px] font-medium uppercase tracking-tighter">Records</span></button>
         <button onClick={() => { setActiveView('currency'); pushNav(); }} className={`flex flex-col items-center gap-1 transition-all ${activeView === 'currency' ? 'text-blue-500 scale-110' : 'text-zinc-500'}`}><Coins className="w-6 h-6" /><span className="text-[10px] font-medium uppercase tracking-tighter">Currency</span></button>
-        <button onClick={() => { setActiveView('categories'); pushNav(); }} className={`flex flex-col items-center gap-1 transition-all ${activeView === 'categories' ? 'text-blue-500 scale-110' : 'text-zinc-500'}`}><PieChart className="w-6 h-6" /><span className="text-[10px] font-medium uppercase tracking-tighter">Cats</span></button>
+        <button onClick={() => { setActiveView('categories'); pushNav(); }} className={`flex flex-col items-center gap-1 transition-all ${activeView === 'categories' ? 'text-blue-500 scale-110' : 'text-zinc-500'}`}><PieChart className="w-6 h-6" /><span className="text-[10px] font-medium uppercase tracking-tighter">Categorys</span></button>
       </nav>
 
       {/* Currency Management Modal */}
@@ -741,12 +762,9 @@ const App: React.FC = () => {
                 </div>
               </div>
             </div>
-            {/* Redundant bottom button removed based on user image instructions */}
           </div>
         </div>
       )}
-
-      {/* Account Picker UI converted to Dropdowns in the Modal below */}
 
       {/* Category Picker Modal */}
       {showCategoryPicker && (
