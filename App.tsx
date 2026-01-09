@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Menu, Bell, Settings, Plus, LayoutGrid, List, TrendingUp, MoreVertical,
@@ -28,7 +27,6 @@ const CURATED_COLORS = [
   '#ffffff', // White
 ];
 
-// Helper to convert hex to HSL for the sliders
 const hexToHSL = (hex: string) => {
   let r = 0, g = 0, b = 0;
   if (hex.length === 4) {
@@ -96,34 +94,26 @@ const App: React.FC = () => {
   });
 
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
-
-  // State for Modals
   const [isAddingTransaction, setIsAddingTransaction] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isAddingAccount, setIsAddingAccount] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [managingCategory, setManagingCategory] = useState<Category | null>(null);
-  
   const [isManagingCurrency, setIsManagingCurrency] = useState(false);
   const [editingRate, setEditingRate] = useState<CurrencyRate | null>(null);
   const [newRateName, setNewRateName] = useState('');
   const [newRateValue, setNewRateValue] = useState('');
-
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
-
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showFromAccountPicker, setShowFromAccountPicker] = useState(false);
   const [showToAccountPicker, setShowToAccountPicker] = useState(false);
   const [selectedMainCategory, setSelectedMainCategory] = useState<Category | null>(null);
-
-  // Custom Pickers for Account modal
   const [showAccountTypeSheet, setShowAccountTypeSheet] = useState(false);
   const [showCurrencySheet, setShowCurrencySheet] = useState(false);
   const [showColorSheet, setShowColorSheet] = useState(false);
   const [isAdvancedColorMode, setIsAdvancedColorMode] = useState(false);
-
   const [tempAccount, setTempAccount] = useState<Account | null>(null);
   const [isEditingCategoryName, setIsEditingCategoryName] = useState(false);
   const [editingCategoryValue, setEditingCategoryValue] = useState('');
@@ -131,13 +121,11 @@ const App: React.FC = () => {
   const [editingSubValue, setEditingSubValue] = useState('');
   const [isAddingSub, setIsAddingSub] = useState(false);
   const [newSubValue, setNewSubValue] = useState('');
-
   const [newAccName, setNewAccName] = useState('');
   const [newAccBalance, setNewAccBalance] = useState('0');
   const [newAccType, setNewAccType] = useState<AccountType>(AccountType.BANK);
   const [newAccCurrency, setNewAccCurrency] = useState<Currency>('IRT');
   const [newAccColor, setNewAccColor] = useState('#2563eb');
-
   const [txType, setTxType] = useState<TransactionType>(TransactionType.EXPENSE);
   const [txAmountStr, setTxAmountStr] = useState<string>('0');
   const [txAccount, setTxAccount] = useState<string>(accounts[0]?.id || '');
@@ -155,7 +143,6 @@ const App: React.FC = () => {
   const saveBtn = `${baseActionBtn} text-blue-500`;
   const deleteBtn = `${baseActionBtn} text-rose-500`;
 
-  // Total Balance Calculation
   const totalBalanceIRT = useMemo(() => {
     return accounts
       .filter(acc => selectedAccountIds.includes(acc.id))
@@ -166,7 +153,6 @@ const App: React.FC = () => {
       }, 0);
   }, [accounts, selectedAccountIds, currencyRates]);
 
-  // Persistence
   useEffect(() => localStorage.setItem('fallet_accounts', JSON.stringify(accounts)), [accounts]);
   useEffect(() => localStorage.setItem('fallet_transactions', JSON.stringify(transactions)), [transactions]);
   useEffect(() => localStorage.setItem('fallet_categories', JSON.stringify(categories)), [categories]);
@@ -373,7 +359,12 @@ const App: React.FC = () => {
 
   const handleDeleteAccount = (id: string) => {
     if (accounts.length <= 1) return;
-    if (!confirm("Are you sure you want to delete this account? Transactions will lose their account link.")) return;
+    const hasTransactions = transactions.some(t => t.accountId === id || t.toAccountId === id);
+    if (hasTransactions) {
+      alert("Cannot delete account: it has existing transaction records associated with it.");
+      return;
+    }
+    if (!confirm("Are you sure you want to delete this account?")) return;
     setAccounts(prev => prev.filter(a => a.id !== id));
     setSelectedAccountIds(prev => prev.filter(x => x !== id));
     setEditingAccount(null);
@@ -469,6 +460,11 @@ const App: React.FC = () => {
   const handleDeleteRate = (code: string) => {
     if (code === 'IRT') {
       alert("IRT is a base currency and cannot be deleted.");
+      return;
+    }
+    const isUsedByAccount = accounts.some(a => a.currency === code);
+    if (isUsedByAccount) {
+      alert(`Cannot delete ${code}: it is currently being used by one or more accounts.`);
       return;
     }
     if (!confirm(`Are you sure you want to delete ${code}?`)) return;
@@ -593,7 +589,6 @@ const App: React.FC = () => {
 
   return (
     <div className="max-w-md mx-auto h-[100dvh] bg-[#0e0e10] flex flex-col relative overflow-hidden select-none">
-      {/* Selection Header */}
       {selectedRecordIds.length > 0 && (
         <header className="p-4 flex items-center justify-between sticky top-0 z-[60] bg-blue-600 safe-top animate-in fade-in slide-in-from-top duration-200">
           <div className="flex items-center gap-4">
@@ -604,7 +599,6 @@ const App: React.FC = () => {
         </header>
       )}
 
-      {/* Main Header */}
       <header className="p-4 flex items-center justify-between sticky top-0 z-30 bg-[#0e0e10]/90 backdrop-blur-md safe-top border-b border-zinc-900/50">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
@@ -618,7 +612,6 @@ const App: React.FC = () => {
       <main className="flex-1 overflow-hidden">
         {activeView === 'dashboard' && (
           <div className="px-2 py-4 space-y-2 pb-40 overflow-y-auto h-full no-scrollbar animate-in fade-in duration-500">
-            {/* Total Balance Card */}
             <div className="bg-[#1e1e1e] rounded-[8px] border border-zinc-800/80 shadow-xl overflow-hidden p-5 flex flex-col items-center justify-center text-center space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Total Balance</span>
               <div className="flex items-baseline gap-2">
@@ -629,7 +622,6 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Accounts Card */}
             <div className="bg-[#1e1e1e] rounded-[8px] border border-zinc-800/80 shadow-xl overflow-hidden">
               <div className="px-3 py-4 flex items-center justify-between">
                 <h2 className="text-base font-medium text-white tracking-tight">Accounts</h2>
@@ -648,7 +640,6 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Last Records Card with simplified header swap for empty state */}
             <div className="bg-[#1e1e1e] rounded-[8px] border border-zinc-800/80 shadow-xl overflow-hidden">
                <div className="px-3 py-4 flex items-center justify-between">
                  <h2 className="text-base font-medium text-white tracking-tight">
@@ -751,7 +742,6 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* FAB - Context Aware */}
       <button onClick={handleFabAction} className={`fixed bottom-[114px] right-6 w-14 h-14 bg-blue-600 rounded-[12px] shadow-2xl flex items-center justify-center text-white z-50 hover:scale-105 active:scale-95 transition-all border-t border-white/20 ${selectedRecordIds.length > 0 ? 'scale-0' : 'scale-100'}`}>
         <Plus className="w-8 h-8" />
       </button>
@@ -763,7 +753,6 @@ const App: React.FC = () => {
         <button onClick={() => { setActiveView('categories'); pushNav(); }} className={`flex flex-col items-center gap-1 transition-all ${activeView === 'categories' ? 'text-blue-500 scale-110' : 'text-zinc-500'}`}><PieChart className="w-6 h-6" /><span className="text-[10px] font-medium uppercase tracking-tighter">Categories</span></button>
       </nav>
 
-      {/* Modals */}
       {isAddingCategory && (
         <div className="fixed inset-0 z-[260] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md">
            <div className="w-full max-sm max-w-sm bg-[#1e1e1e] border border-zinc-800 rounded-[10px] p-6 space-y-6 shadow-2xl animate-in zoom-in duration-200">
@@ -774,7 +763,7 @@ const App: React.FC = () => {
              <div className="space-y-4">
                 <div className="space-y-1">
                   <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Category Name</span>
-                  <input placeholder="Entertainment" autoFocus value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSaveNewCategory()} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-5 outline-none focus:border-blue-500 font-medium text-white transition-all" />
+                  <input placeholder="Entertainment" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSaveNewCategory()} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-5 outline-none focus:border-blue-500 font-medium text-white transition-all" />
                 </div>
              </div>
              <button onClick={handleSaveNewCategory} className="w-full h-14 bg-blue-600 rounded-[8px] font-medium text-white shadow-lg active:scale-95 transition-all uppercase tracking-widest text-sm flex items-center justify-center gap-2"><Check className="w-5 h-5" />Create Category</button>
@@ -914,7 +903,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Account Type Selection Sheet */}
       {showAccountTypeSheet && (
         <div className="fixed inset-0 z-[280] flex items-end justify-center p-0 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
           <div onClick={() => setShowAccountTypeSheet(false)} className="absolute inset-0" />
@@ -947,7 +935,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Currency Selection Sheet */}
       {showCurrencySheet && (
         <div className="fixed inset-0 z-[280] flex items-end justify-center p-0 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
           <div onClick={() => setShowCurrencySheet(false)} className="absolute inset-0" />
@@ -980,25 +967,19 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Color Selection Sheet */}
       {showColorSheet && (
         <div className="fixed inset-0 z-[280] flex items-end justify-center p-0 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
           <div onClick={() => setShowColorSheet(false)} className="absolute inset-0" />
           <div className="w-full bg-[#1e1e1e] border-t border-zinc-800 rounded-t-[20px] p-6 pb-12 shadow-2xl animate-in slide-in-from-bottom duration-300 relative z-10 max-h-[90vh] overflow-y-auto no-scrollbar">
             <div className="w-12 h-1 bg-zinc-700 rounded-full mx-auto mb-6 opacity-30" />
-            
             <div className="flex items-center justify-between px-2 mb-6">
               <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-500">
                 {isAdvancedColorMode ? 'Advanced Color' : 'Select Color'}
               </h3>
-              <button 
-                onClick={() => setIsAdvancedColorMode(!isAdvancedColorMode)}
-                className="text-[10px] font-bold uppercase tracking-widest text-blue-500 active:scale-95 transition-all"
-              >
+              <button onClick={() => setIsAdvancedColorMode(!isAdvancedColorMode)} className="text-[10px] font-bold uppercase tracking-widest text-blue-500 active:scale-95 transition-all">
                 {isAdvancedColorMode ? 'Quick Palette' : 'Advanced Mode'}
               </button>
             </div>
-
             {!isAdvancedColorMode ? (
               <div className="grid grid-cols-4 gap-3 px-2 animate-in fade-in slide-in-from-left duration-200">
                 {CURATED_COLORS.map(color => (
@@ -1016,22 +997,15 @@ const App: React.FC = () => {
                     {currentAccountColor === color && <Check className={`w-6 h-6 ${color === '#ffffff' ? 'text-black' : 'text-white'} drop-shadow-md`} />}
                   </button>
                 ))}
-                <button 
-                  onClick={() => setIsAdvancedColorMode(true)}
-                  className="aspect-square rounded-[12px] bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center gap-1 active:scale-95 transition-all text-zinc-400"
-                >
+                <button onClick={() => setIsAdvancedColorMode(true)} className="aspect-square rounded-[12px] bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center gap-1 active:scale-95 transition-all text-zinc-400">
                   <Plus className="w-6 h-6" />
                   <span className="text-[8px] font-bold uppercase tracking-widest">Custom</span>
                 </button>
               </div>
             ) : (
               <div className="space-y-8 px-4 py-2 animate-in fade-in slide-in-from-right duration-200">
-                {/* Big Preview */}
                 <div className="flex items-center gap-6">
-                   <div 
-                    className="w-20 h-20 rounded-[20px] shadow-2xl border border-white/10" 
-                    style={{ backgroundColor: currentAccountColor }} 
-                   />
+                   <div className="w-20 h-20 rounded-[20px] shadow-2xl border border-white/10" style={{ backgroundColor: currentAccountColor }} />
                    <div className="flex-1 space-y-2">
                      <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 block">Hex Value</span>
                      <div className="h-14 bg-[#0e0e10] border border-zinc-800 rounded-[12px] flex items-center px-4 gap-3">
@@ -1049,48 +1023,21 @@ const App: React.FC = () => {
                      </div>
                    </div>
                 </div>
-
-                {/* Sliders */}
                 <div className="space-y-6">
-                  {/* Hue */}
                   <div className="space-y-2">
                     <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-zinc-500"><span>Hue</span><span>{hsl.h}°</span></div>
-                    <input 
-                      type="range" min="0" max="360" value={hsl.h}
-                      onChange={(e) => updateColorFromHSL(parseInt(e.target.value), hsl.s, hsl.l)}
-                      className="w-full h-3 rounded-full appearance-none bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-cyan-500 via-blue-500 via-purple-500 to-red-500 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-4 [&::-webkit-slider-thumb]:border-zinc-900" 
-                    />
+                    <input type="range" min="0" max="360" value={hsl.h} onChange={(e) => updateColorFromHSL(parseInt(e.target.value), hsl.s, hsl.l)} className="w-full h-3 rounded-full appearance-none bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-cyan-500 via-blue-500 via-purple-500 to-red-500 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-4 [&::-webkit-slider-thumb]:border-zinc-900" />
                   </div>
-
-                  {/* Saturation */}
                   <div className="space-y-2">
                     <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-zinc-500"><span>Saturation</span><span>{hsl.s}%</span></div>
-                    <input 
-                      type="range" min="0" max="100" value={hsl.s}
-                      onChange={(e) => updateColorFromHSL(hsl.h, parseInt(e.target.value), hsl.l)}
-                      style={{ background: `linear-gradient(to right, #808080, ${hslToHex(hsl.h, 100, 50)})` }}
-                      className="w-full h-3 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-4 [&::-webkit-slider-thumb]:border-zinc-900" 
-                    />
+                    <input type="range" min="0" max="100" value={hsl.s} onChange={(e) => updateColorFromHSL(hsl.h, parseInt(e.target.value), hsl.l)} style={{ background: `linear-gradient(to right, #808080, ${hslToHex(hsl.h, 100, 50)})` }} className="w-full h-3 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-4 [&::-webkit-slider-thumb]:border-zinc-900" />
                   </div>
-
-                  {/* Lightness */}
                   <div className="space-y-2">
                     <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-zinc-500"><span>Lightness</span><span>{hsl.l}%</span></div>
-                    <input 
-                      type="range" min="0" max="100" value={hsl.l}
-                      onChange={(e) => updateColorFromHSL(hsl.h, hsl.s, parseInt(e.target.value))}
-                      style={{ background: `linear-gradient(to right, #000, ${hslToHex(hsl.h, 100, 50)}, #fff)` }}
-                      className="w-full h-3 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-4 [&::-webkit-slider-thumb]:border-zinc-900" 
-                    />
+                    <input type="range" min="0" max="100" value={hsl.l} onChange={(e) => updateColorFromHSL(hsl.h, hsl.s, parseInt(e.target.value))} style={{ background: `linear-gradient(to right, #000, ${hslToHex(hsl.h, 100, 50)}, #fff)` }} className="w-full h-3 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-4 [&::-webkit-slider-thumb]:border-zinc-900" />
                   </div>
                 </div>
-
-                <button 
-                  onClick={() => setShowColorSheet(false)}
-                  className="w-full h-14 bg-blue-600 rounded-[12px] font-bold text-white uppercase tracking-[0.2em] text-[11px] mt-4 active:scale-95 transition-all shadow-lg"
-                >
-                  Set Custom Color
-                </button>
+                <button onClick={() => setShowColorSheet(false)} className="w-full h-14 bg-blue-600 rounded-[12px] font-bold text-white uppercase tracking-[0.2em] text-[11px] mt-4 active:scale-95 transition-all shadow-lg">Set Custom Color</button>
               </div>
             )}
             {!isAdvancedColorMode && <button onClick={() => setShowColorSheet(false)} className="w-full h-14 bg-zinc-800 rounded-[12px] font-bold text-white uppercase tracking-[0.2em] text-[11px] mt-8 active:bg-zinc-700 transition-all">Cancel</button>}
@@ -1112,8 +1059,8 @@ const App: React.FC = () => {
       {managingCategory && (
         <div className="fixed inset-0 z-[160] bg-[#0e0e10] flex flex-col p-4 safe-top animate-in slide-in-from-bottom duration-300 no-scrollbar">
            <div className="flex items-center justify-between mb-8"><button onClick={() => setManagingCategory(null)} className={closeBtn}><ArrowLeft className="w-5 h-5" /></button><h3 className="text-xl font-medium uppercase tracking-tight">Category Details</h3><button onClick={() => deleteCategory(managingCategory.id)} className={deleteBtn}><Trash2 className="w-5 h-5" /></button></div>
-           <div className="space-y-4 mb-6"><span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest block ml-2">Category Name</span>{isEditingCategoryName ? (<div className="p-4 bg-[#1e1e1e] border border-zinc-800 rounded-[8px] flex items-center justify-between animate-in fade-in zoom-in duration-200"><div className="flex items-center gap-4 flex-1 mr-2"><div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-zinc-500 shrink-0">{getCategoryIcon(managingCategory.name, "w-5 h-5")}</div><input autoFocus value={editingCategoryValue} onChange={e => setEditingCategoryValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && updateCategoryName(managingCategory.id, editingCategoryValue)} className="bg-transparent border-b border-blue-500 outline-none text-xl font-medium text-white w-full" /></div><div className="flex gap-1 shrink-0"><button onClick={() => updateCategoryName(managingCategory.id, editingCategoryValue)} className="p-2 bg-blue-600 rounded-lg text-white"><Check className="w-4 h-4" /></button><button onClick={() => setIsEditingCategoryName(false)} className="p-2 bg-zinc-700 rounded-lg text-white"><X className="w-4 h-4" /></button></div></div>) : (<div className="p-4 bg-[#1e1e1e] rounded-[8px] border border-zinc-800 flex items-center justify-between group"><div className="flex items-center gap-4"><div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-zinc-500">{getCategoryIcon(managingCategory.name, "w-5 h-5")}</div><span className="text-2xl font-medium text-white">{managingCategory.name}</span></div><button onClick={() => { setIsEditingCategoryName(true); setEditingCategoryValue(managingCategory.name); }} className="p-2 text-zinc-500 hover:text-white"><Edit2 className="w-4 h-4" /></button></div>)}</div>
-           <div className="flex-1 overflow-y-auto px-1 space-y-2 pb-20 no-scrollbar"><div className="flex items-center justify-between mb-2"><span className="text-xs font-medium text-zinc-500 uppercase tracking-widest px-2">Sub-categories</span><button onClick={() => setIsAddingSub(true)} className={saveBtn}><Plus className="w-5 h-5" /></button></div>{isAddingSub && (<div className="p-4 bg-[#1e1e1e] border border-zinc-800 rounded-[8px] flex items-center justify-between animate-in fade-in zoom-in duration-200"><input autoFocus placeholder="Sub-category name..." value={newSubValue} onChange={e => setNewSubValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddSubCategory(managingCategory.id, newSubValue)} className="bg-transparent outline-none font-medium text-white flex-1 mr-2" /><div className="flex items-center gap-1 shrink-0"><button onClick={() => handleAddSubCategory(managingCategory.id, newSubValue)} className="p-2 bg-blue-600 rounded-lg text-white"><Check className="w-4 h-4" /></button><button onClick={() => setIsAddingSub(false)} className="p-2 bg-zinc-700 rounded-lg text-white"><X className="w-4 h-4" /></button></div></div>)}{managingCategory.subCategories.map((sub, idx) => (<div key={idx} className="p-4 bg-[#1e1e1e] rounded-[8px] flex items-center justify-between border border-zinc-800">{editingSubIndex === idx ? (<div className="flex items-center justify-between w-full"><input autoFocus value={editingSubValue} onChange={e => setEditingSubValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveSubCategoryEdit(managingCategory.id, idx, editingSubValue)} className="bg-transparent border-b border-blue-500 outline-none font-medium text-white flex-1 mr-2" /><div className="flex gap-1 shrink-0"><button onClick={() => saveSubCategoryEdit(managingCategory.id, idx, editingSubValue)} className="p-2 bg-blue-600 rounded-lg text-white"><Check className="w-4 h-4" /></button><button onClick={() => setEditingSubIndex(null)} className="p-2 bg-zinc-700 rounded-lg text-white"><X className="w-4 h-4" /></button></div></div>) : (<><span className="font-medium text-zinc-200">{sub}</span><div className="flex gap-2"><button onClick={() => { setEditingSubIndex(idx); setEditingSubValue(sub); }} className="p-2 text-zinc-500"><Edit2 className="w-4 h-4" /></button><button onClick={() => handleDeleteSubCategory(managingCategory.id, idx)} className="p-2 text-zinc-500"><Trash2 className="w-4 h-4" /></button></div></>)}</div>))}</div>
+           <div className="space-y-4 mb-6"><span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest block ml-2">Category Name</span>{isEditingCategoryName ? (<div className="p-4 bg-[#1e1e1e] border border-zinc-800 rounded-[8px] flex items-center justify-between animate-in fade-in zoom-in duration-200"><div className="flex items-center gap-4 flex-1 mr-2"><div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-zinc-500 shrink-0">{getCategoryIcon(managingCategory.name, "w-5 h-5")}</div><input value={editingCategoryValue} onChange={e => setEditingCategoryValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && updateCategoryName(managingCategory.id, editingCategoryValue)} className="bg-transparent border-b border-blue-500 outline-none text-xl font-medium text-white w-full" /></div><div className="flex gap-1 shrink-0"><button onClick={() => updateCategoryName(managingCategory.id, editingCategoryValue)} className="p-2 bg-blue-600 rounded-lg text-white"><Check className="w-4 h-4" /></button><button onClick={() => setIsEditingCategoryName(false)} className="p-2 bg-zinc-700 rounded-lg text-white"><X className="w-4 h-4" /></button></div></div>) : (<div className="p-4 bg-[#1e1e1e] rounded-[8px] border border-zinc-800 flex items-center justify-between group"><div className="flex items-center gap-4"><div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-zinc-500">{getCategoryIcon(managingCategory.name, "w-5 h-5")}</div><span className="text-2xl font-medium text-white">{managingCategory.name}</span></div><button onClick={() => { setIsEditingCategoryName(true); setEditingCategoryValue(managingCategory.name); }} className="p-2 text-zinc-500 hover:text-white"><Edit2 className="w-4 h-4" /></button></div>)}</div>
+           <div className="flex-1 overflow-y-auto px-1 space-y-2 pb-20 no-scrollbar"><div className="flex items-center justify-between mb-2"><span className="text-xs font-medium text-zinc-500 uppercase tracking-widest px-2">Sub-categories</span><button onClick={() => setIsAddingSub(true)} className={saveBtn}><Plus className="w-5 h-5" /></button></div>{isAddingSub && (<div className="p-4 bg-[#1e1e1e] border border-zinc-800 rounded-[8px] flex items-center justify-between animate-in fade-in zoom-in duration-200"><input placeholder="Sub-category name..." value={newSubValue} onChange={e => setNewSubValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddSubCategory(managingCategory.id, newSubValue)} className="bg-transparent outline-none font-medium text-white flex-1 mr-2" /><div className="flex items-center gap-1 shrink-0"><button onClick={() => handleAddSubCategory(managingCategory.id, newSubValue)} className="p-2 bg-blue-600 rounded-lg text-white"><Check className="w-4 h-4" /></button><button onClick={() => setIsAddingSub(false)} className="p-2 bg-zinc-700 rounded-lg text-white"><X className="w-4 h-4" /></button></div></div>)}{managingCategory.subCategories.map((sub, idx) => (<div key={idx} className="p-4 bg-[#1e1e1e] rounded-[8px] flex items-center justify-between border border-zinc-800">{editingSubIndex === idx ? (<div className="flex items-center justify-between w-full"><input value={editingSubValue} onChange={e => setEditingSubValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveSubCategoryEdit(managingCategory.id, idx, editingSubValue)} className="bg-transparent border-b border-blue-500 outline-none font-medium text-white flex-1 mr-2" /><div className="flex gap-1 shrink-0"><button onClick={() => saveSubCategoryEdit(managingCategory.id, idx, editingSubValue)} className="p-2 bg-blue-600 rounded-lg text-white"><Check className="w-4 h-4" /></button><button onClick={() => setEditingSubIndex(null)} className="p-2 bg-zinc-700 rounded-lg text-white"><X className="w-4 h-4" /></button></div></div>) : (<><span className="font-medium text-zinc-200">{sub}</span><div className="flex gap-2"><button onClick={() => { setEditingSubIndex(idx); setEditingSubValue(sub); }} className="p-2 text-zinc-500"><Edit2 className="w-4 h-4" /></button><button onClick={() => handleDeleteSubCategory(managingCategory.id, idx)} className="p-2 text-zinc-500"><Trash2 className="w-4 h-4" /></button></div></>)}</div>))}</div>
         </div>
       )}
     </div>
