@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Menu, Bell, Settings, Plus, LayoutGrid, List, TrendingUp, MoreVertical,
-  ArrowLeftRight, X, ChevronRight, PieChart, Trash2, Edit2, Check, ArrowLeft, Calendar, Clock, Search, Delete, Equal, Wallet, Landmark, Coins, CreditCard, Tag, ShoppingBag, Scissors, Utensils, ReceiptText, Palette, ChevronDown, ChevronUp, GripVertical, Banknote, Globe, Hash
+  ArrowLeftRight, X, ChevronRight, PieChart, Trash2, Edit2, Check, ArrowLeft, Calendar, Clock, Search, Delete, Equal, Wallet, Landmark, Coins, CreditCard, Tag, ShoppingBag, Scissors, Utensils, ReceiptText, Palette, ChevronDown, ChevronUp, GripVertical, Banknote, Globe, Hash, AlertTriangle
 } from 'lucide-react';
 import AccountCard from './components/AccountCard.tsx';
 import TransactionItem from './components/TransactionItem.tsx';
@@ -135,6 +136,41 @@ const App: React.FC = () => {
   const [txNote, setTxNote] = useState<string>('');
   const [txDate, setTxDate] = useState<string>('');
 
+  // Custom Dialog State
+  const [dialogConfig, setDialogConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm?: () => void;
+    isDestructive?: boolean;
+    isAlert?: boolean;
+  }>({ isOpen: false, title: '', message: '' });
+
+  const showAlert = (title: string, message: string) => {
+    setDialogConfig({
+      isOpen: true,
+      title,
+      message,
+      confirmText: 'OK',
+      isAlert: true
+    });
+  };
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void, isDestructive = false) => {
+    setDialogConfig({
+      isOpen: true,
+      title,
+      message,
+      confirmText: 'Confirm',
+      cancelText: 'Cancel',
+      onConfirm,
+      isDestructive,
+      isAlert: false
+    });
+  };
+
   const accountsContainerRef = useRef<HTMLDivElement>(null);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
 
@@ -217,12 +253,18 @@ const App: React.FC = () => {
   }, [transactions, accounts, transactionsToDisplay]);
 
   const handleOpenNewTransaction = () => {
+    const firstActiveAccount = accounts.find(acc => selectedAccountIds.includes(acc.id)) || accounts[0];
+    const defaultAccountId = firstActiveAccount?.id || '';
+
     setEditingTransaction(null);
     setTxAmountStr('0');
     setTxNote('');
     setTxDate(new Date().toISOString().slice(0, 16));
-    setTxAccount(accounts[0]?.id || '');
-    setTxToAccount(accounts.find(a => a.id !== accounts[0]?.id)?.id || '');
+    setTxAccount(defaultAccountId);
+    
+    const targetAccount = accounts.find(a => a.id !== defaultAccountId) || accounts[0];
+    setTxToAccount(targetAccount?.id || '');
+    
     setTxCategory(categories[0]?.name || '');
     setTxSubCategory('');
     setTxType(TransactionType.EXPENSE);
@@ -305,32 +347,44 @@ const App: React.FC = () => {
   };
 
   const performDeleteTransaction = (id: string) => {
-    if (!confirm("Are you sure you want to delete this record?")) return;
-    const tx = transactions.find(t => t.id === id);
-    if (!tx) return;
-    setTransactions(prev => prev.filter(t => t.id !== id));
-    setAccounts(prev => prev.map(acc => {
-      let b = acc.balance;
-      if (acc.id === tx.accountId) b = tx.type === TransactionType.INCOME ? b - tx.amount : b + tx.amount;
-      if (tx.type === TransactionType.TRANSFER && acc.id === tx.toAccountId) b = b - tx.amount;
-      return { ...acc, balance: b };
-    }));
-  };
-
-  const handleBulkDelete = () => {
-    if (!confirm(`Are you sure you want to delete ${selectedRecordIds.length} records?`)) return;
-    selectedRecordIds.forEach(id => {
-       const tx = transactions.find(t => t.id === id);
-       if (!tx) return;
-       setAccounts(prev => prev.map(acc => {
+    showConfirm(
+      "Delete Record", 
+      "Are you sure you want to delete this record?", 
+      () => {
+        const tx = transactions.find(t => t.id === id);
+        if (!tx) return;
+        setTransactions(prev => prev.filter(t => t.id !== id));
+        setAccounts(prev => prev.map(acc => {
           let b = acc.balance;
           if (acc.id === tx.accountId) b = tx.type === TransactionType.INCOME ? b - tx.amount : b + tx.amount;
           if (tx.type === TransactionType.TRANSFER && acc.id === tx.toAccountId) b = b - tx.amount;
           return { ...acc, balance: b };
-       }));
-    });
-    setTransactions(prev => prev.filter(t => !selectedRecordIds.includes(t.id)));
-    setSelectedRecordIds([]);
+        }));
+      },
+      true
+    );
+  };
+
+  const handleBulkDelete = () => {
+    showConfirm(
+      "Bulk Delete", 
+      `Are you sure you want to delete ${selectedRecordIds.length} records?`, 
+      () => {
+        selectedRecordIds.forEach(id => {
+          const tx = transactions.find(t => t.id === id);
+          if (!tx) return;
+          setAccounts(prev => prev.map(acc => {
+            let b = acc.balance;
+            if (acc.id === tx.accountId) b = tx.type === TransactionType.INCOME ? b - tx.amount : b + tx.amount;
+            if (tx.type === TransactionType.TRANSFER && acc.id === tx.toAccountId) b = b - tx.amount;
+            return { ...acc, balance: b };
+          }));
+        });
+        setTransactions(prev => prev.filter(t => !selectedRecordIds.includes(t.id)));
+        setSelectedRecordIds([]);
+      },
+      true
+    );
   };
 
   const handleToggleRecordSelection = (id: string) => {
@@ -361,13 +415,19 @@ const App: React.FC = () => {
     if (accounts.length <= 1) return;
     const hasTransactions = transactions.some(t => t.accountId === id || t.toAccountId === id);
     if (hasTransactions) {
-      alert("Cannot delete account: it has existing transaction records associated with it.");
+      showAlert("Cannot Delete Account", "This account has existing transaction records associated with it. Please remove those records first.");
       return;
     }
-    if (!confirm("Are you sure you want to delete this account?")) return;
-    setAccounts(prev => prev.filter(a => a.id !== id));
-    setSelectedAccountIds(prev => prev.filter(x => x !== id));
-    setEditingAccount(null);
+    showConfirm(
+      "Delete Account", 
+      "Are you sure you want to delete this account?", 
+      () => {
+        setAccounts(prev => prev.filter(a => a.id !== id));
+        setSelectedAccountIds(prev => prev.filter(x => x !== id));
+        setEditingAccount(null);
+      },
+      true
+    );
   };
 
   const handleKeypadPress = (val: string) => {
@@ -401,12 +461,18 @@ const App: React.FC = () => {
     if (!category) return;
     const hasRecords = transactions.some(t => t.category === category.name);
     if (hasRecords) {
-      alert("Cannot delete category: it has existing transaction records associated with it.");
+      showAlert("Cannot Delete Category", "This category has existing transaction records associated with it. Please reassign or remove the records first.");
       return;
     }
-    if (!confirm("Are you sure you want to delete this category?")) return;
-    setCategories(prev => prev.filter(c => c.id !== id));
-    setManagingCategory(null);
+    showConfirm(
+      "Delete Category", 
+      `Are you sure you want to delete "${category.name}"?`, 
+      () => {
+        setCategories(prev => prev.filter(c => c.id !== id));
+        setManagingCategory(null);
+      },
+      true
+    );
   };
 
   const handleAddSubCategory = (catId: string, name: string) => {
@@ -423,12 +489,18 @@ const App: React.FC = () => {
     const subName = cat.subCategories[index];
     const hasRecords = transactions.some(t => t.category === cat.name && t.subCategory === subName);
     if (hasRecords) {
-      alert(`Cannot delete sub-category "${subName}": it has existing transaction records associated with it.`);
+      showAlert("Cannot Delete Sub-category", `"${subName}" has existing transaction records associated with it.`);
       return;
     }
-    if (!confirm(`Are you sure you want to delete "${subName}"?`)) return;
-    setCategories(prev => prev.map(c => c.id === catId ? { ...c, subCategories: c.subCategories.filter((_, i) => i !== index) } : c));
-    setManagingCategory(prev => prev ? { ...prev, subCategories: prev.subCategories.filter((_, i) => i !== index) } : null);
+    showConfirm(
+      "Delete Sub-category", 
+      `Are you sure you want to delete "${subName}"?`, 
+      () => {
+        setCategories(prev => prev.map(c => c.id === catId ? { ...c, subCategories: c.subCategories.filter((_, i) => i !== index) } : c));
+        setManagingCategory(prev => prev ? { ...prev, subCategories: prev.subCategories.filter((_, i) => i !== index) } : null);
+      },
+      true
+    );
   };
 
   const saveSubCategoryEdit = (catId: string, index: number, newSubName: string) => {
@@ -459,16 +531,20 @@ const App: React.FC = () => {
 
   const handleDeleteRate = (code: string) => {
     if (code === 'IRT') {
-      alert("IRT is a base currency and cannot be deleted.");
+      showAlert("Operation Blocked", "IRT is the base currency and cannot be deleted.");
       return;
     }
     const isUsedByAccount = accounts.some(a => a.currency === code);
     if (isUsedByAccount) {
-      alert(`Cannot delete ${code}: it is currently being used by one or more accounts.`);
+      showAlert("Currency in Use", `The currency "${code}" is currently used by one or more accounts. Please update those accounts first.`);
       return;
     }
-    if (!confirm(`Are you sure you want to delete ${code}?`)) return;
-    setCurrencyRates(prev => prev.filter(r => r.code !== code));
+    showConfirm(
+      "Delete Currency", 
+      `Are you sure you want to delete ${code}?`, 
+      () => setCurrencyRates(prev => prev.filter(r => r.code !== code)),
+      true
+    );
   };
 
   const handleSaveNewCategory = () => {
@@ -589,6 +665,43 @@ const App: React.FC = () => {
 
   return (
     <div className="max-w-md mx-auto h-[100dvh] bg-[#0e0e10] flex flex-col relative overflow-hidden select-none">
+      
+      {/* Custom Dialog Overlay */}
+      {dialogConfig.isOpen && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+           <div className="w-full max-w-sm bg-[#1e1e1e] border border-zinc-800 rounded-[12px] p-6 space-y-5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-in zoom-in duration-200">
+             <div className="flex items-center gap-3">
+               <div className={`p-2 rounded-full ${dialogConfig.isDestructive ? 'bg-rose-500/10 text-rose-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                 {dialogConfig.isAlert ? <AlertTriangle className="w-6 h-6" /> : <MoreVertical className="w-6 h-6" />}
+               </div>
+               <h3 className="text-xl font-medium text-white tracking-tight">{dialogConfig.title}</h3>
+             </div>
+             <p className="text-sm text-zinc-400 leading-relaxed font-normal">
+               {dialogConfig.message}
+             </p>
+             <div className="flex items-center gap-3 pt-2">
+               {!dialogConfig.isAlert && (
+                 <button 
+                  onClick={() => setDialogConfig(prev => ({ ...prev, isOpen: false }))}
+                  className="flex-1 h-12 rounded-[8px] bg-zinc-800 text-zinc-300 font-medium active:bg-zinc-700 transition-colors uppercase tracking-widest text-[11px]"
+                 >
+                   {dialogConfig.cancelText || 'Cancel'}
+                 </button>
+               )}
+               <button 
+                onClick={() => {
+                  dialogConfig.onConfirm?.();
+                  setDialogConfig(prev => ({ ...prev, isOpen: false }));
+                }}
+                className={`flex-1 h-12 rounded-[8px] font-medium text-white transition-all uppercase tracking-widest text-[11px] shadow-lg active:scale-95 ${dialogConfig.isDestructive ? 'bg-rose-600 hover:bg-rose-500' : 'bg-blue-600 hover:bg-blue-500'}`}
+               >
+                 {dialogConfig.confirmText || 'OK'}
+               </button>
+             </div>
+           </div>
+        </div>
+      )}
+
       {selectedRecordIds.length > 0 && (
         <header className="p-4 flex items-center justify-between sticky top-0 z-[60] bg-blue-600 safe-top animate-in fade-in slide-in-from-top duration-200">
           <div className="flex items-center gap-4">
