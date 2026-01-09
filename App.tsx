@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Menu, Bell, Settings, Plus, LayoutGrid, List, TrendingUp, MoreVertical,
-  ArrowLeftRight, X, ChevronRight, PieChart, Trash2, Edit2, Check, ArrowLeft, Calendar, Clock, Search, Delete, Equal, Wallet, Landmark, Coins, CreditCard, Tag, ShoppingBag, Scissors, Utensils, ReceiptText, Palette, ChevronDown, ChevronUp, GripVertical, Banknote, Globe
+  ArrowLeftRight, X, ChevronRight, PieChart, Trash2, Edit2, Check, ArrowLeft, Calendar, Clock, Search, Delete, Equal, Wallet, Landmark, Coins, CreditCard, Tag, ShoppingBag, Scissors, Utensils, ReceiptText, Palette, ChevronDown, ChevronUp, GripVertical, Banknote, Globe, Hash
 } from 'lucide-react';
 import AccountCard from './components/AccountCard.tsx';
 import TransactionItem from './components/TransactionItem.tsx';
@@ -27,6 +27,47 @@ const CURATED_COLORS = [
   '#71717a', // Zinc
   '#ffffff', // White
 ];
+
+// Helper to convert hex to HSL for the sliders
+const hexToHSL = (hex: string) => {
+  let r = 0, g = 0, b = 0;
+  if (hex.length === 4) {
+    r = parseInt(hex[1] + hex[1], 16);
+    g = parseInt(hex[2] + hex[2], 16);
+    b = parseInt(hex[3] + hex[3], 16);
+  } else if (hex.length === 7) {
+    r = parseInt(hex.substring(1, 3), 16);
+    g = parseInt(hex.substring(3, 5), 16);
+    b = parseInt(hex.substring(5, 7), 16);
+  }
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s, l = (max + min) / 2;
+  if (max === min) {
+    h = s = 0;
+  } else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h /= 6;
+  }
+  return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+};
+
+const hslToHex = (h: number, s: number, l: number) => {
+  l /= 100;
+  const a = s * Math.min(l, 1 - l) / 100;
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color).toString(16).padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+};
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<'dashboard' | 'records' | 'categories' | 'currency'>('dashboard');
@@ -81,6 +122,7 @@ const App: React.FC = () => {
   const [showAccountTypeSheet, setShowAccountTypeSheet] = useState(false);
   const [showCurrencySheet, setShowCurrencySheet] = useState(false);
   const [showColorSheet, setShowColorSheet] = useState(false);
+  const [isAdvancedColorMode, setIsAdvancedColorMode] = useState(false);
 
   const [tempAccount, setTempAccount] = useState<Account | null>(null);
   const [isEditingCategoryName, setIsEditingCategoryName] = useState(false);
@@ -105,7 +147,6 @@ const App: React.FC = () => {
   const [txNote, setTxNote] = useState<string>('');
   const [txDate, setTxDate] = useState<string>('');
 
-  const colorInputRef = useRef<HTMLInputElement>(null);
   const accountsContainerRef = useRef<HTMLDivElement>(null);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
 
@@ -542,6 +583,14 @@ const App: React.FC = () => {
     window.addEventListener('pointerup', handleGlobalPointerUp);
   };
 
+  const hsl = useMemo(() => hexToHSL(currentAccountColor), [currentAccountColor]);
+
+  const updateColorFromHSL = (h: number, s: number, l: number) => {
+    const hex = hslToHex(h, s, l);
+    if (isAddingAccount) setNewAccColor(hex);
+    else if (tempAccount) setTempAccount({ ...tempAccount, color: hex });
+  };
+
   return (
     <div className="max-w-md mx-auto h-[100dvh] bg-[#0e0e10] flex flex-col relative overflow-hidden select-none">
       {/* Selection Header */}
@@ -848,7 +897,7 @@ const App: React.FC = () => {
                 </div>
                 <div className="space-y-1">
                   <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Account Color</span>
-                  <button onClick={() => setShowColorSheet(true)} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-5 flex items-center justify-between cursor-pointer active:scale-95 transition-all">
+                  <button onClick={() => { setShowColorSheet(true); setIsAdvancedColorMode(false); }} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-5 flex items-center justify-between cursor-pointer active:scale-95 transition-all">
                     <div className="flex items-center gap-3">
                       <div className="w-6 h-6 rounded-full border border-white/20" style={{ backgroundColor: currentAccountColor }} />
                       <span className="text-sm font-medium text-zinc-300">Choose Accent Color</span>
@@ -935,41 +984,116 @@ const App: React.FC = () => {
       {showColorSheet && (
         <div className="fixed inset-0 z-[280] flex items-end justify-center p-0 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
           <div onClick={() => setShowColorSheet(false)} className="absolute inset-0" />
-          <div className="w-full bg-[#1e1e1e] border-t border-zinc-800 rounded-t-[20px] p-6 pb-12 shadow-2xl animate-in slide-in-from-bottom duration-300 relative z-10">
+          <div className="w-full bg-[#1e1e1e] border-t border-zinc-800 rounded-t-[20px] p-6 pb-12 shadow-2xl animate-in slide-in-from-bottom duration-300 relative z-10 max-h-[90vh] overflow-y-auto no-scrollbar">
             <div className="w-12 h-1 bg-zinc-700 rounded-full mx-auto mb-6 opacity-30" />
-            <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-500 mb-6 px-2">Select Color</h3>
-            <div className="grid grid-cols-4 gap-3 px-2">
-              {CURATED_COLORS.map(color => (
-                <button 
-                  key={color} 
-                  onClick={() => {
-                    if (isAddingAccount) setNewAccColor(color);
-                    else if (tempAccount) setTempAccount({...tempAccount, color});
-                    setShowColorSheet(false);
-                    if ('vibrate' in navigator) navigator.vibrate(10);
-                  }}
-                  style={{ backgroundColor: color }}
-                  className={`aspect-square rounded-[12px] shadow-lg flex items-center justify-center transition-all active:scale-90 relative overflow-hidden ${currentAccountColor === color ? 'ring-2 ring-white ring-offset-2 ring-offset-[#1e1e1e]' : 'border border-white/10'}`}
-                >
-                  {currentAccountColor === color && <Check className={`w-6 h-6 ${color === '#ffffff' ? 'text-black' : 'text-white'} drop-shadow-md`} />}
-                </button>
-              ))}
-              {/* Custom Hex Picker Button */}
+            
+            <div className="flex items-center justify-between px-2 mb-6">
+              <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-500">
+                {isAdvancedColorMode ? 'Advanced Color' : 'Select Color'}
+              </h3>
               <button 
-                onClick={() => colorInputRef.current?.click()}
-                className="aspect-square rounded-[12px] bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center gap-1 active:scale-95 transition-all text-zinc-400"
+                onClick={() => setIsAdvancedColorMode(!isAdvancedColorMode)}
+                className="text-[10px] font-bold uppercase tracking-widest text-blue-500 active:scale-95 transition-all"
               >
-                <Palette className="w-6 h-6" />
-                <span className="text-[8px] font-bold uppercase tracking-widest">Custom</span>
-                <input ref={colorInputRef} type="color" className="sr-only" value={currentAccountColor} onChange={e => {
-                  const val = e.target.value;
-                  if (isAddingAccount) setNewAccColor(val);
-                  else if (tempAccount) setTempAccount({...tempAccount, color: val});
-                  // Don't close sheet immediately so user can see it
-                }} />
+                {isAdvancedColorMode ? 'Quick Palette' : 'Advanced Mode'}
               </button>
             </div>
-            <button onClick={() => setShowColorSheet(false)} className="w-full h-14 bg-zinc-800 rounded-[12px] font-bold text-white uppercase tracking-[0.2em] text-[11px] mt-8 active:bg-zinc-700 transition-all">Cancel</button>
+
+            {!isAdvancedColorMode ? (
+              <div className="grid grid-cols-4 gap-3 px-2 animate-in fade-in slide-in-from-left duration-200">
+                {CURATED_COLORS.map(color => (
+                  <button 
+                    key={color} 
+                    onClick={() => {
+                      if (isAddingAccount) setNewAccColor(color);
+                      else if (tempAccount) setTempAccount({...tempAccount, color});
+                      setShowColorSheet(false);
+                      if ('vibrate' in navigator) navigator.vibrate(10);
+                    }}
+                    style={{ backgroundColor: color }}
+                    className={`aspect-square rounded-[12px] shadow-lg flex items-center justify-center transition-all active:scale-90 relative overflow-hidden ${currentAccountColor === color ? 'ring-2 ring-white ring-offset-2 ring-offset-[#1e1e1e]' : 'border border-white/10'}`}
+                  >
+                    {currentAccountColor === color && <Check className={`w-6 h-6 ${color === '#ffffff' ? 'text-black' : 'text-white'} drop-shadow-md`} />}
+                  </button>
+                ))}
+                <button 
+                  onClick={() => setIsAdvancedColorMode(true)}
+                  className="aspect-square rounded-[12px] bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center gap-1 active:scale-95 transition-all text-zinc-400"
+                >
+                  <Plus className="w-6 h-6" />
+                  <span className="text-[8px] font-bold uppercase tracking-widest">Custom</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-8 px-4 py-2 animate-in fade-in slide-in-from-right duration-200">
+                {/* Big Preview */}
+                <div className="flex items-center gap-6">
+                   <div 
+                    className="w-20 h-20 rounded-[20px] shadow-2xl border border-white/10" 
+                    style={{ backgroundColor: currentAccountColor }} 
+                   />
+                   <div className="flex-1 space-y-2">
+                     <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 block">Hex Value</span>
+                     <div className="h-14 bg-[#0e0e10] border border-zinc-800 rounded-[12px] flex items-center px-4 gap-3">
+                        <Hash className="w-4 h-4 text-zinc-600" />
+                        <input 
+                          value={currentAccountColor.replace('#', '')} 
+                          onChange={(e) => {
+                            const val = e.target.value.substring(0, 6);
+                            if (isAddingAccount) setNewAccColor(`#${val}`);
+                            else if (tempAccount) setTempAccount({ ...tempAccount, color: `#${val}` });
+                          }}
+                          className="bg-transparent text-white font-bold tracking-widest uppercase outline-none w-full"
+                          placeholder="FFFFFF"
+                        />
+                     </div>
+                   </div>
+                </div>
+
+                {/* Sliders */}
+                <div className="space-y-6">
+                  {/* Hue */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-zinc-500"><span>Hue</span><span>{hsl.h}°</span></div>
+                    <input 
+                      type="range" min="0" max="360" value={hsl.h}
+                      onChange={(e) => updateColorFromHSL(parseInt(e.target.value), hsl.s, hsl.l)}
+                      className="w-full h-3 rounded-full appearance-none bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-cyan-500 via-blue-500 via-purple-500 to-red-500 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-4 [&::-webkit-slider-thumb]:border-zinc-900" 
+                    />
+                  </div>
+
+                  {/* Saturation */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-zinc-500"><span>Saturation</span><span>{hsl.s}%</span></div>
+                    <input 
+                      type="range" min="0" max="100" value={hsl.s}
+                      onChange={(e) => updateColorFromHSL(hsl.h, parseInt(e.target.value), hsl.l)}
+                      style={{ background: `linear-gradient(to right, #808080, ${hslToHex(hsl.h, 100, 50)})` }}
+                      className="w-full h-3 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-4 [&::-webkit-slider-thumb]:border-zinc-900" 
+                    />
+                  </div>
+
+                  {/* Lightness */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-zinc-500"><span>Lightness</span><span>{hsl.l}%</span></div>
+                    <input 
+                      type="range" min="0" max="100" value={hsl.l}
+                      onChange={(e) => updateColorFromHSL(hsl.h, hsl.s, parseInt(e.target.value))}
+                      style={{ background: `linear-gradient(to right, #000, ${hslToHex(hsl.h, 100, 50)}, #fff)` }}
+                      className="w-full h-3 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-4 [&::-webkit-slider-thumb]:border-zinc-900" 
+                    />
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => setShowColorSheet(false)}
+                  className="w-full h-14 bg-blue-600 rounded-[12px] font-bold text-white uppercase tracking-[0.2em] text-[11px] mt-4 active:scale-95 transition-all shadow-lg"
+                >
+                  Set Custom Color
+                </button>
+              </div>
+            )}
+            {!isAdvancedColorMode && <button onClick={() => setShowColorSheet(false)} className="w-full h-14 bg-zinc-800 rounded-[12px] font-bold text-white uppercase tracking-[0.2em] text-[11px] mt-8 active:bg-zinc-700 transition-all">Cancel</button>}
           </div>
         </div>
       )}
