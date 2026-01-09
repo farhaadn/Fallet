@@ -13,6 +13,21 @@ import {
   Account, Transaction, TransactionType, AccountType, Category, Currency, CurrencyRate 
 } from './types.ts';
 
+const CURATED_COLORS = [
+  '#2563eb', // Blue
+  '#10b981', // Emerald
+  '#e11d48', // Rose
+  '#f59e0b', // Amber
+  '#8b5cf6', // Violet
+  '#06b6d4', // Cyan
+  '#f43f5e', // Pink
+  '#fb923c', // Orange
+  '#a855f7', // Purple
+  '#14b8a6', // Teal
+  '#71717a', // Zinc
+  '#ffffff', // White
+];
+
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<'dashboard' | 'records' | 'categories' | 'currency'>('dashboard');
   
@@ -62,9 +77,10 @@ const App: React.FC = () => {
   const [showToAccountPicker, setShowToAccountPicker] = useState(false);
   const [selectedMainCategory, setSelectedMainCategory] = useState<Category | null>(null);
 
-  // New Custom Pickers for Account modal
+  // Custom Pickers for Account modal
   const [showAccountTypeSheet, setShowAccountTypeSheet] = useState(false);
   const [showCurrencySheet, setShowCurrencySheet] = useState(false);
+  const [showColorSheet, setShowColorSheet] = useState(false);
 
   const [tempAccount, setTempAccount] = useState<Account | null>(null);
   const [isEditingCategoryName, setIsEditingCategoryName] = useState(false);
@@ -97,6 +113,17 @@ const App: React.FC = () => {
   const closeBtn = `${baseActionBtn} text-zinc-400`;
   const saveBtn = `${baseActionBtn} text-blue-500`;
   const deleteBtn = `${baseActionBtn} text-rose-500`;
+
+  // Total Balance Calculation
+  const totalBalanceIRT = useMemo(() => {
+    return accounts
+      .filter(acc => selectedAccountIds.includes(acc.id))
+      .reduce((sum, acc) => {
+        const rateObj = currencyRates.find(r => r.code === acc.currency);
+        const rate = rateObj ? rateObj.rateToIRR : 1;
+        return sum + (acc.balance * rate);
+      }, 0);
+  }, [accounts, selectedAccountIds, currencyRates]);
 
   // Persistence
   useEffect(() => localStorage.setItem('fallet_accounts', JSON.stringify(accounts)), [accounts]);
@@ -457,6 +484,7 @@ const App: React.FC = () => {
 
   const currentAccountType = isAddingAccount ? newAccType : tempAccount?.type || AccountType.BANK;
   const currentAccountCurrency = isAddingAccount ? newAccCurrency : tempAccount?.currency || 'IRT';
+  const currentAccountColor = isAddingAccount ? newAccColor : tempAccount?.color || '#2563eb';
 
   const sortedCurrencyRates = useMemo(() => {
     return [...currencyRates].sort((a, b) => a.code === 'IRT' ? -1 : b.code === 'IRT' ? 1 : 0);
@@ -541,6 +569,17 @@ const App: React.FC = () => {
       <main className="flex-1 overflow-hidden">
         {activeView === 'dashboard' && (
           <div className="px-2 py-4 space-y-2 pb-40 overflow-y-auto h-full no-scrollbar animate-in fade-in duration-500">
+            {/* Total Balance Card */}
+            <div className="bg-[#1e1e1e] rounded-[8px] border border-zinc-800/80 shadow-xl overflow-hidden p-5 flex flex-col items-center justify-center text-center space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Total Balance</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-medium text-white tracking-tight leading-none">
+                  {totalBalanceIRT.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </span>
+                <span className="text-xs font-bold text-blue-500 uppercase tracking-widest">IRT</span>
+              </div>
+            </div>
+
             {/* Accounts Card */}
             <div className="bg-[#1e1e1e] rounded-[8px] border border-zinc-800/80 shadow-xl overflow-hidden">
               <div className="px-3 py-4 flex items-center justify-between">
@@ -807,7 +846,16 @@ const App: React.FC = () => {
                     </button>
                   </div>
                 </div>
-                <div className="space-y-1"><span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Account Color</span><div onClick={() => colorInputRef.current?.click()} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-5 flex items-center justify-between cursor-pointer"><div className="flex items-center gap-3"><div className="w-6 h-6 rounded-full border border-white/20" style={{ backgroundColor: isAddingAccount ? newAccColor : tempAccount?.color || '#2563eb' }} /><span className="text-sm font-medium text-zinc-300">Choose Custom Color</span></div><Palette className="w-4 h-4 text-zinc-500" /><input ref={colorInputRef} type="color" className="sr-only" value={isAddingAccount ? newAccColor : tempAccount?.color || '#2563eb'} onChange={e => isAddingAccount ? setNewAccColor(e.target.value) : setTempAccount(prev => prev ? {...prev, color: e.target.value} : null)} /></div></div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Account Color</span>
+                  <button onClick={() => setShowColorSheet(true)} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-5 flex items-center justify-between cursor-pointer active:scale-95 transition-all">
+                    <div className="flex items-center gap-3">
+                      <div className="w-6 h-6 rounded-full border border-white/20" style={{ backgroundColor: currentAccountColor }} />
+                      <span className="text-sm font-medium text-zinc-300">Choose Accent Color</span>
+                    </div>
+                    <Palette className="w-4 h-4 text-zinc-500" />
+                  </button>
+                </div>
              </div>
              <div className="flex flex-col gap-3 pt-2">
                 <button onClick={isAddingAccount ? handleAddAccount : handleUpdateAccount} className="w-full h-14 bg-blue-600 rounded-[8px] font-medium text-white shadow-lg active:scale-95 transition-all uppercase tracking-widest text-sm flex items-center justify-center gap-2"><Check className="w-5 h-5" />{isAddingAccount ? 'Create Account' : 'Save Changes'}</button>
@@ -879,6 +927,49 @@ const App: React.FC = () => {
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Color Selection Sheet */}
+      {showColorSheet && (
+        <div className="fixed inset-0 z-[280] flex items-end justify-center p-0 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div onClick={() => setShowColorSheet(false)} className="absolute inset-0" />
+          <div className="w-full bg-[#1e1e1e] border-t border-zinc-800 rounded-t-[20px] p-6 pb-12 shadow-2xl animate-in slide-in-from-bottom duration-300 relative z-10">
+            <div className="w-12 h-1 bg-zinc-700 rounded-full mx-auto mb-6 opacity-30" />
+            <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-500 mb-6 px-2">Select Color</h3>
+            <div className="grid grid-cols-4 gap-3 px-2">
+              {CURATED_COLORS.map(color => (
+                <button 
+                  key={color} 
+                  onClick={() => {
+                    if (isAddingAccount) setNewAccColor(color);
+                    else if (tempAccount) setTempAccount({...tempAccount, color});
+                    setShowColorSheet(false);
+                    if ('vibrate' in navigator) navigator.vibrate(10);
+                  }}
+                  style={{ backgroundColor: color }}
+                  className={`aspect-square rounded-[12px] shadow-lg flex items-center justify-center transition-all active:scale-90 relative overflow-hidden ${currentAccountColor === color ? 'ring-2 ring-white ring-offset-2 ring-offset-[#1e1e1e]' : 'border border-white/10'}`}
+                >
+                  {currentAccountColor === color && <Check className={`w-6 h-6 ${color === '#ffffff' ? 'text-black' : 'text-white'} drop-shadow-md`} />}
+                </button>
+              ))}
+              {/* Custom Hex Picker Button */}
+              <button 
+                onClick={() => colorInputRef.current?.click()}
+                className="aspect-square rounded-[12px] bg-zinc-800 border border-zinc-700 flex flex-col items-center justify-center gap-1 active:scale-95 transition-all text-zinc-400"
+              >
+                <Palette className="w-6 h-6" />
+                <span className="text-[8px] font-bold uppercase tracking-widest">Custom</span>
+                <input ref={colorInputRef} type="color" className="sr-only" value={currentAccountColor} onChange={e => {
+                  const val = e.target.value;
+                  if (isAddingAccount) setNewAccColor(val);
+                  else if (tempAccount) setTempAccount({...tempAccount, color: val});
+                  // Don't close sheet immediately so user can see it
+                }} />
+              </button>
+            </div>
+            <button onClick={() => setShowColorSheet(false)} className="w-full h-14 bg-zinc-800 rounded-[12px] font-bold text-white uppercase tracking-[0.2em] text-[11px] mt-8 active:bg-zinc-700 transition-all">Cancel</button>
           </div>
         </div>
       )}
