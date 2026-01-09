@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Menu, Bell, Settings, Plus, LayoutGrid, List, TrendingUp, MoreVertical,
-  ArrowLeftRight, X, ChevronRight, PieChart, Trash2, Edit2, Check, ArrowLeft, Calendar, Clock, Search, Delete, Equal, Wallet, Landmark, Coins, CreditCard, Tag, ShoppingBag, Scissors, Utensils, ReceiptText, Palette, ChevronDown, ChevronUp, GripVertical, Banknote, Globe, Hash, AlertTriangle
+  ArrowLeftRight, X, ChevronRight, PieChart, Trash2, Edit2, Check, ArrowLeft, Calendar, Clock, Search, Delete, Equal, Wallet, Landmark, Coins, CreditCard, Tag, ShoppingBag, Scissors, Utensils, ReceiptText, Palette, ChevronDown, ChevronUp, GripVertical, Banknote, Globe, Hash, AlertTriangle, Lock
 } from 'lucide-react';
 import AccountCard from './components/AccountCard.tsx';
 import TransactionItem from './components/TransactionItem.tsx';
@@ -100,6 +100,7 @@ const App: React.FC = () => {
   const [isAddingAccount, setIsAddingAccount] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [wasSettingsOpenForAdd, setWasSettingsOpenForAdd] = useState(false);
   const [managingCategory, setManagingCategory] = useState<Category | null>(null);
   const [isManagingCurrency, setIsManagingCurrency] = useState(false);
   const [editingRate, setEditingRate] = useState<CurrencyRate | null>(null);
@@ -397,6 +398,8 @@ const App: React.FC = () => {
     setIsAddingAccount(false);
     setNewAccName('');
     setNewAccBalance('0');
+    if (wasSettingsOpenForAdd) setShowSettings(true);
+    setWasSettingsOpenForAdd(false);
   };
 
   const handleStartEditAccount = (acc: Account) => {
@@ -409,6 +412,7 @@ const App: React.FC = () => {
   const handleUpdateAccount = () => {
     if (tempAccount) setAccounts(prev => prev.map(a => a.id === tempAccount.id ? tempAccount : a));
     setEditingAccount(null);
+    setShowSettings(true);
   };
 
   const handleDeleteAccount = (id: string) => {
@@ -425,6 +429,7 @@ const App: React.FC = () => {
         setAccounts(prev => prev.filter(a => a.id !== id));
         setSelectedAccountIds(prev => prev.filter(x => x !== id));
         setEditingAccount(null);
+        setShowSettings(true);
       },
       true
     );
@@ -519,10 +524,21 @@ const App: React.FC = () => {
     if (isNaN(rateVal)) return;
 
     if (editingRate) {
-      setCurrencyRates(prev => prev.map(r => r.code === editingRate.code ? { ...r, code: newRateName as Currency, rateToIRR: rateVal } : r));
+      const oldCode = editingRate.code;
+      const newCode = newRateName as Currency;
+
+      // Update Currency Rates
+      setCurrencyRates(prev => prev.map(r => r.code === oldCode ? { ...r, code: newCode, rateToIRR: rateVal } : r));
+
+      // Cascade code change if the code was actually renamed
+      if (oldCode !== newCode) {
+        setAccounts(prev => prev.map(acc => acc.currency === oldCode ? { ...acc, currency: newCode } : acc));
+        setTransactions(prev => prev.map(t => t.currency === oldCode ? { ...t, currency: newCode } : t));
+      }
     } else {
       setCurrencyRates(prev => [...prev, { code: newRateName as Currency, rateToIRR: rateVal, symbol: newRateName }]);
     }
+    
     setIsManagingCurrency(false);
     setEditingRate(null);
     setNewRateName('');
@@ -542,7 +558,11 @@ const App: React.FC = () => {
     showConfirm(
       "Delete Currency", 
       `Are you sure you want to delete ${code}?`, 
-      () => setCurrencyRates(prev => prev.filter(r => r.code !== code)),
+      () => {
+        setCurrencyRates(prev => prev.filter(r => r.code !== code));
+        setIsManagingCurrency(false);
+        setEditingRate(null);
+      },
       true
     );
   };
@@ -669,7 +689,7 @@ const App: React.FC = () => {
       {/* Custom Dialog Overlay */}
       {dialogConfig.isOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-           <div className="w-full max-w-sm bg-[#1e1e1e] border border-zinc-800 rounded-[12px] p-6 space-y-5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-in zoom-in duration-200">
+           <div className="w-full max-sm bg-[#1e1e1e] border border-zinc-800 rounded-[12px] p-6 space-y-5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-in zoom-in duration-200">
              <div className="flex items-center gap-3">
                <div className={`p-2 rounded-full ${dialogConfig.isDestructive ? 'bg-rose-500/10 text-rose-500' : 'bg-blue-500/10 text-blue-500'}`}>
                  {dialogConfig.isAlert ? <AlertTriangle className="w-6 h-6" /> : <MoreVertical className="w-6 h-6" />}
@@ -746,7 +766,7 @@ const App: React.FC = () => {
                 {accounts.map(acc => (
                   <AccountCard key={acc.id} account={acc} isSelected={selectedAccountIds.includes(acc.id)} onClick={() => toggleAccountSelection(acc.id)} />
                 ))}
-                <button onClick={() => { setIsAddingAccount(true); pushNav(); }} className="flex flex-col items-center justify-center p-2 rounded-[4px] border border-dashed border-zinc-800 h-[84px] text-zinc-500 gap-1 bg-[#1e1e1e]/20 hover:bg-[#1e1e1e]/40 transition-colors">
+                <button onClick={() => { setIsAddingAccount(true); setWasSettingsOpenForAdd(false); pushNav(); }} className="flex flex-col items-center justify-center p-2 rounded-[4px] border border-dashed border-zinc-800 h-[84px] text-zinc-500 gap-1 bg-[#1e1e1e]/20 hover:bg-[#1e1e1e]/40 transition-colors">
                   <Plus className="w-4 h-4" />
                   <span className="text-[9px] font-medium uppercase tracking-wider">Add</span>
                 </button>
@@ -915,7 +935,7 @@ const App: React.FC = () => {
             <div className="flex items-center justify-between sticky top-0 bg-[#1e1e1e] pb-4 shrink-0"><h3 className="text-lg font-medium uppercase tracking-[0.1em] text-zinc-400">Settings</h3><button onClick={() => setShowSettings(false)} className={closeBtn}><X className="w-5 h-5" /></button></div>
             <div className="flex-1 overflow-y-auto no-scrollbar space-y-8 pr-1">
               <div className="space-y-3">
-                <div className="flex items-center justify-between px-2"><span className="text-[10px] font-medium text-zinc-500 uppercase tracking-[0.2em]">Manage Accounts</span><button onClick={() => { setIsAddingAccount(true); setShowSettings(false); pushNav(); }} className={saveBtn}><Plus className="w-5 h-5" /></button></div>
+                <div className="flex items-center justify-between px-2"><span className="text-[10px] font-medium text-zinc-500 uppercase tracking-[0.2em]">Manage Accounts</span><button onClick={() => { setIsAddingAccount(true); setWasSettingsOpenForAdd(true); setShowSettings(false); pushNav(); }} className={saveBtn}><Plus className="w-5 h-5" /></button></div>
                 <div className="space-y-2" ref={accountsContainerRef}>
                    {accounts.map((acc, index) => (
                      <div key={acc.id} className={`flex items-center justify-between p-4 bg-[#0e0e10] border rounded-[8px] transition-all duration-300 relative ${draggingIdx === index ? 'opacity-40 scale-[1.03] border-blue-500 z-50 shadow-2xl ring-1 ring-blue-500/50' : 'border-zinc-800'}`}>
@@ -975,7 +995,7 @@ const App: React.FC = () => {
       {(isAddingAccount || editingAccount) && (
         <div className="fixed inset-0 z-[140] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md overflow-y-auto no-scrollbar">
            <div className="w-full max-sm max-w-sm bg-[#1e1e1e] border border-zinc-800 rounded-[10px] p-6 space-y-5 animate-in zoom-in duration-200 shadow-2xl my-auto">
-             <div className="flex justify-between items-center"><h3 className="text-lg font-medium uppercase tracking-tight text-white">{isAddingAccount ? 'New Account' : 'Edit Account'}</h3><button onClick={() => {setIsAddingAccount(false); setEditingAccount(null);}} className={closeBtn}><X className="w-5 h-5" /></button></div>
+             <div className="flex justify-between items-center"><h3 className="text-lg font-medium uppercase tracking-tight text-white">{isAddingAccount ? 'New Account' : 'Edit Account'}</h3><button onClick={() => { if (editingAccount || wasSettingsOpenForAdd) setShowSettings(true); setIsAddingAccount(false); setEditingAccount(null); setWasSettingsOpenForAdd(false); }} className={closeBtn}><X className="w-5 h-5" /></button></div>
              <div className="space-y-4">
                 <div className="space-y-1"><span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Account Name</span><input placeholder="Account Name" value={isAddingAccount ? newAccName : tempAccount?.name || ''} onChange={e => isAddingAccount ? setNewAccName(e.target.value) : setTempAccount(prev => prev ? {...prev, name: e.target.value} : null)} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-5 outline-none focus:border-blue-500 font-medium text-white transition-all" /></div>
                 <div className="space-y-1"><span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Initial Balance</span><input type="number" placeholder="0" value={isAddingAccount ? newAccBalance : tempAccount?.balance || '0'} onChange={e => isAddingAccount ? setNewAccBalance(e.target.value) : setTempAccount(prev => prev ? {...prev, balance: parseFloat(e.target.value) || 0} : null)} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-5 outline-none focus:border-blue-500 font-medium text-white transition-all" /></div>
@@ -990,10 +1010,15 @@ const App: React.FC = () => {
                   </div>
                   <div className="space-y-1">
                     <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest ml-1">Currency</span>
-                    <button onClick={() => setShowCurrencySheet(true)} className="w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-3 flex items-center justify-between cursor-pointer active:scale-95 transition-all">
-                      <Banknote className="w-5 h-5 text-emerald-500" />
-                      <span className="text-[13px] font-medium text-zinc-100 uppercase mx-2 truncate">{currentAccountCurrency}</span>
-                      <ChevronDown className="w-4 h-4 text-zinc-500" />
+                    <button 
+                      onClick={() => isAddingAccount && setShowCurrencySheet(true)} 
+                      className={`w-full h-14 bg-[#0e0e10] border border-zinc-800 rounded-[8px] px-3 flex items-center justify-between transition-all ${isAddingAccount ? 'cursor-pointer active:scale-95' : 'opacity-50 cursor-not-allowed'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Banknote className="w-5 h-5 text-emerald-500" />
+                        <span className="text-[13px] font-medium text-zinc-100 uppercase truncate">{currentAccountCurrency}</span>
+                      </div>
+                      {isAddingAccount ? <ChevronDown className="w-4 h-4 text-zinc-500" /> : <Lock className="w-3.5 h-3.5 text-zinc-600" />}
                     </button>
                   </div>
                 </div>
