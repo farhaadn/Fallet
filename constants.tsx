@@ -33,11 +33,55 @@ export const INITIAL_TRANSACTIONS: Transaction[] = [
 ];
 
 export const INITIAL_CATEGORIES: Category[] = [
-  { id: 'cat1', name: 'Food & Drink', subCategories: ['Groceries', 'Restaurant', 'Coffee'] },
-  { id: 'cat2', name: 'Transportation', subCategories: ['Fuel', 'Taxi', 'Public Transport'] },
-  { id: 'cat3', name: 'Shopping', subCategories: ['Clothes', 'Electronics', 'Gifts'] },
-  { id: 'cat4', name: 'Housing', subCategories: ['Rent', 'Maintenance', 'Energy'] },
-  { id: 'cat5', name: 'Salary', subCategories: ['Main Job', 'Freelance'] },
+  { 
+    id: 'cat1', 
+    name: 'Food & Drink', 
+    icon: 'Utensils',
+    subCategories: [
+      { name: 'Groceries', icon: 'ShoppingBag' }, 
+      { name: 'Restaurant', icon: 'Utensils' }, 
+      { name: 'Coffee', icon: 'Coffee' }
+    ] 
+  },
+  { 
+    id: 'cat2', 
+    name: 'Transportation', 
+    icon: 'Car',
+    subCategories: [
+      { name: 'Fuel', icon: 'Zap' }, 
+      { name: 'Taxi', icon: 'Car' }, 
+      { name: 'Public Transport', icon: 'Bus' }
+    ] 
+  },
+  { 
+    id: 'cat3', 
+    name: 'Shopping', 
+    icon: 'ShoppingBag',
+    subCategories: [
+      { name: 'Clothes', icon: 'Shirt' }, 
+      { name: 'Electronics', icon: 'Smartphone' }, 
+      { name: 'Gifts', icon: 'Gift' }
+    ] 
+  },
+  { 
+    id: 'cat4', 
+    name: 'Housing', 
+    icon: 'Home',
+    subCategories: [
+      { name: 'Rent', icon: 'ReceiptText' }, 
+      { name: 'Maintenance', icon: 'Scissors' }, 
+      { name: 'Energy', icon: 'Zap' }
+    ] 
+  },
+  { 
+    id: 'cat5', 
+    name: 'Salary', 
+    icon: 'TrendingUp',
+    subCategories: [
+      { name: 'Main Job', icon: 'Briefcase' }, 
+      { name: 'Freelance', icon: 'Star' }
+    ] 
+  },
 ];
 
 export const CURRENCY_RATES: CurrencyRate[] = [

@@ -1,3 +1,4 @@
+
 export type Currency = 'USD' | 'IRR' | 'EUR' | 'BTC' | 'ETH' | string;
 
 export enum AccountType {
@@ -23,10 +24,16 @@ export interface Account {
   color: string; // Hex color code
 }
 
+export interface SubCategory {
+  name: string;
+  icon?: string;
+}
+
 export interface Category {
   id: string;
   name: string;
-  subCategories: string[];
+  icon?: string;
+  subCategories: SubCategory[];
 }
 
 export interface Transaction {

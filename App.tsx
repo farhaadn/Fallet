@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Menu, Bell, Settings, Plus, LayoutGrid, List, TrendingUp, MoreVertical,
-  ArrowLeftRight, X, ChevronRight, PieChart, Trash2, Edit2, Check, ArrowLeft, Calendar, Clock, Search, Delete, Equal, Wallet, Landmark, Coins, CreditCard, Tag, ShoppingBag, Scissors, Utensils, ReceiptText, Palette, ChevronDown, ChevronUp, GripVertical, Banknote, Globe, Hash, AlertTriangle, Lock
+  ArrowLeftRight, X, ChevronRight, PieChart, Trash2, Edit2, Check, ArrowLeft, Calendar, Clock, Search, Delete, Equal, Wallet, Landmark, Coins, CreditCard, Tag, ShoppingBag, Scissors, Utensils, ReceiptText, Palette, ChevronDown, ChevronUp, GripVertical, Banknote, Globe, Hash, AlertTriangle, Lock, Home, Car, Heart, Smartphone, Coffee, Music, Camera, Gift, Plane, Briefcase, Zap, Star, Shield, HelpCircle, Bus, Shirt
 } from 'lucide-react';
 import AccountCard from './components/AccountCard.tsx';
 import TransactionItem from './components/TransactionItem.tsx';
@@ -10,7 +10,7 @@ import {
   INITIAL_ACCOUNTS, INITIAL_TRANSACTIONS, INITIAL_CATEGORIES, CURRENCY_RATES as INITIAL_RATES
 } from './constants.tsx';
 import { 
-  Account, Transaction, TransactionType, AccountType, Category, Currency, CurrencyRate 
+  Account, Transaction, TransactionType, AccountType, Category, Currency, CurrencyRate, SubCategory 
 } from './types.ts';
 
 const CURATED_COLORS = [
@@ -27,6 +27,24 @@ const CURATED_COLORS = [
   '#71717a', // Zinc
   '#ffffff', // White
 ];
+
+const ICON_PICKER_OPTIONS = [
+  'Tag', 'ShoppingBag', 'Scissors', 'Utensils', 'ReceiptText', 'TrendingUp', 'Wallet', 
+  'Landmark', 'Coins', 'CreditCard', 'Home', 'Car', 'Heart', 'Smartphone', 'Coffee', 
+  'Music', 'Camera', 'Gift', 'Plane', 'Briefcase', 'Zap', 'Star', 'Shield', 'HelpCircle', 
+  'Bus', 'Shirt', 'PieChart', 'Calendar', 'Clock', 'Globe', 'Bell', 'Settings'
+];
+
+const IconMap: Record<string, any> = {
+  Tag, ShoppingBag, Scissors, Utensils, ReceiptText, TrendingUp, Wallet, 
+  Landmark, Coins, CreditCard, Home, Car, Heart, Smartphone, Coffee, 
+  Music, Camera, Gift, Plane, Briefcase, Zap, Star, Shield, HelpCircle, 
+  Bus, Shirt, PieChart, Calendar, Clock, Globe, Bell, Settings,
+  ArrowUpRight: ArrowUpRight, ArrowDownLeft: ArrowDownLeft, ArrowLeftRight: ArrowLeftRight
+};
+
+function ArrowUpRight(props: any) { return <TrendingUp {...props} /> } // Fallback
+function ArrowDownLeft(props: any) { return <TrendingUp {...props} style={{transform: 'rotate(180deg)'}} /> }
 
 const hexToHSL = (hex: string) => {
   let r = 0, g = 0, b = 0;
@@ -81,7 +99,17 @@ const App: React.FC = () => {
   });
   const [categories, setCategories] = useState<Category[]>(() => {
     const saved = localStorage.getItem('fallet_categories');
-    return saved ? JSON.parse(saved) : INITIAL_CATEGORIES;
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Migration: convert string subcategories to objects if necessary
+      return parsed.map((c: any) => ({
+        ...c,
+        subCategories: c.subCategories.map((sc: any) => 
+          typeof sc === 'string' ? { name: sc, icon: 'Tag' } : sc
+        )
+      }));
+    }
+    return INITIAL_CATEGORIES;
   });
   const [currencyRates, setCurrencyRates] = useState<CurrencyRate[]>(() => {
     const saved = localStorage.getItem('fallet_rates');
@@ -136,6 +164,14 @@ const App: React.FC = () => {
   const [txSubCategory, setTxSubCategory] = useState<string>('');
   const [txNote, setTxNote] = useState<string>('');
   const [txDate, setTxDate] = useState<string>('');
+
+  // Icon Picker State
+  const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
+  const [iconPickerContext, setIconPickerContext] = useState<{
+    type: 'category' | 'subcategory';
+    catId: string;
+    subIndex?: number;
+  } | null>(null);
 
   // Custom Dialog State
   const [dialogConfig, setDialogConfig] = useState<{
@@ -482,8 +518,9 @@ const App: React.FC = () => {
 
   const handleAddSubCategory = (catId: string, name: string) => {
     if (!name) return;
-    setCategories(prev => prev.map(c => c.id === catId ? { ...c, subCategories: [...c.subCategories, name] } : c));
-    setManagingCategory(prev => prev ? { ...prev, subCategories: [...prev.subCategories, name] } : null);
+    const newSub: SubCategory = { name, icon: 'Tag' };
+    setCategories(prev => prev.map(c => c.id === catId ? { ...c, subCategories: [...c.subCategories, newSub] } : c));
+    setManagingCategory(prev => prev ? { ...prev, subCategories: [...prev.subCategories, newSub] } : null);
     setNewSubValue('');
     setIsAddingSub(false);
   };
@@ -491,7 +528,7 @@ const App: React.FC = () => {
   const handleDeleteSubCategory = (catId: string, index: number) => {
     const cat = categories.find(c => c.id === catId);
     if (!cat) return;
-    const subName = cat.subCategories[index];
+    const subName = cat.subCategories[index].name;
     const hasRecords = transactions.some(t => t.category === cat.name && t.subCategory === subName);
     if (hasRecords) {
       showAlert("Cannot Delete Sub-category", `"${subName}" has existing transaction records associated with it.`);
@@ -511,11 +548,47 @@ const App: React.FC = () => {
   const saveSubCategoryEdit = (catId: string, index: number, newSubName: string) => {
     const category = categories.find(c => c.id === catId);
     if (!category || !newSubName) { setEditingSubIndex(null); return; }
-    const oldSubName = category.subCategories[index];
-    setCategories(prev => prev.map(c => c.id === catId ? { ...c, subCategories: c.subCategories.map((s, i) => i === index ? newSubName : s) } : c));
+    const oldSubName = category.subCategories[index].name;
+    setCategories(prev => prev.map(c => c.id === catId ? { 
+      ...c, 
+      subCategories: c.subCategories.map((s, i) => i === index ? { ...s, name: newSubName } : s) 
+    } : c));
     setTransactions(prev => prev.map(t => (t.category === category.name && t.subCategory === oldSubName) ? { ...t, subCategory: newSubName } : t));
-    setManagingCategory(prev => prev ? { ...prev, subCategories: prev.subCategories.map((s, i) => i === index ? newSubName : s) } : null);
+    setManagingCategory(prev => prev ? { 
+      ...prev, 
+      subCategories: prev.subCategories.map((s, i) => i === index ? { ...s, name: newSubName } : s) 
+    } : null);
     setEditingSubIndex(null);
+  };
+
+  const handleSetCustomIcon = (iconName: string) => {
+    if (!iconPickerContext) return;
+    const { type, catId, subIndex } = iconPickerContext;
+
+    setCategories(prev => prev.map(cat => {
+      if (cat.id !== catId) return cat;
+      if (type === 'category') return { ...cat, icon: iconName };
+      return {
+        ...cat,
+        subCategories: cat.subCategories.map((sub, idx) => 
+          idx === subIndex ? { ...sub, icon: iconName } : sub
+        )
+      };
+    }));
+
+    setManagingCategory(prev => {
+      if (!prev || prev.id !== catId) return prev;
+      if (type === 'category') return { ...prev, icon: iconName };
+      return {
+        ...prev,
+        subCategories: prev.subCategories.map((sub, idx) => 
+          idx === subIndex ? { ...sub, icon: iconName } : sub
+        )
+      };
+    });
+
+    setIsIconPickerOpen(false);
+    setIconPickerContext(null);
   };
 
   const handleSaveCurrencyRate = () => {
@@ -569,7 +642,7 @@ const App: React.FC = () => {
 
   const handleSaveNewCategory = () => {
     if (!newCategoryName) return;
-    setCategories(prev => [...prev, { id: Date.now().toString(), name: newCategoryName, subCategories: [] }]);
+    setCategories(prev => [...prev, { id: Date.now().toString(), name: newCategoryName, icon: 'Tag', subCategories: [] }]);
     setIsAddingCategory(false);
     setNewCategoryName('');
   };
@@ -601,14 +674,10 @@ const App: React.FC = () => {
   };
 
   const getCategoryIcon = (catName: string, className?: string) => {
-    const cat = catName.toLowerCase();
-    const finalClass = className || "w-6 h-6";
-    if (cat.includes('shopping')) return <ShoppingBag className={finalClass} />;
-    if (cat.includes('hair') || cat.includes('health')) return <Scissors className={finalClass} />;
-    if (cat.includes('grocer') || cat.includes('food')) return <Utensils className={finalClass} />;
-    if (cat.includes('loan') || cat.includes('rent') || cat.includes('maintenance')) return <ReceiptText className={finalClass} />;
-    if (cat.includes('salary')) return <TrendingUp className={finalClass} />;
-    return <Tag className={finalClass} />;
+    const category = categories.find(c => c.name === catName);
+    const iconName = category?.icon || 'Tag';
+    const IconComp = IconMap[iconName] || Tag;
+    return <IconComp className={className || "w-6 h-6"} />;
   };
 
   const toggleAccountSelection = (accId: string) => {
@@ -686,6 +755,31 @@ const App: React.FC = () => {
   return (
     <div className="max-w-md mx-auto h-[100dvh] bg-[#0e0e10] flex flex-col relative overflow-hidden select-none">
       
+      {/* Icon Picker Overlay */}
+      {isIconPickerOpen && (
+        <div className="fixed inset-0 z-[500] flex items-end justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div onClick={() => setIsIconPickerOpen(false)} className="absolute inset-0" />
+          <div className="w-full max-sm bg-[#1e1e1e] border-t border-zinc-800 rounded-t-[20px] p-6 pb-12 shadow-2xl animate-in slide-in-from-bottom duration-300 relative z-10 max-h-[70vh] flex flex-col">
+            <div className="w-12 h-1 bg-zinc-700 rounded-full mx-auto mb-6 opacity-30" />
+            <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-500 mb-6">Pick Icon</h3>
+            <div className="grid grid-cols-5 gap-4 overflow-y-auto no-scrollbar pr-1">
+              {ICON_PICKER_OPTIONS.map(iconName => {
+                const IconComp = IconMap[iconName] || Tag;
+                return (
+                  <button 
+                    key={iconName} 
+                    onClick={() => handleSetCustomIcon(iconName)}
+                    className="aspect-square bg-[#0e0e10] border border-zinc-800 rounded-[12px] flex items-center justify-center text-zinc-400 hover:text-blue-500 active:scale-90 transition-all"
+                  >
+                    <IconComp className="w-6 h-6" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Custom Dialog Overlay */}
       {dialogConfig.isOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
@@ -787,9 +881,29 @@ const App: React.FC = () => {
                    </div>
                  ) : (
                    <>
-                     {transactionsWithPreBalance.slice(0, 5).map(tx => (
-                       <TransactionItem key={`${tx.id}-${tx.perspective || 'solo'}`} transaction={tx} perspective={tx.perspective} preBalance={tx.preBalance} accountName={accounts.find(a => a.id === (tx.perspective === 'target' ? tx.toAccountId : tx.accountId))?.name || 'Unknown'} onClick={() => handleEditTransaction(tx)} onDelete={() => performDeleteTransaction(tx.id)} onClone={() => handleCloneTransaction(tx)} onLongPress={() => handleToggleRecordSelection(tx.id)} isSelected={selectedRecordIds.includes(tx.id)} fromAccountName={accounts.find(a => a.id === tx.accountId)?.name} toAccountName={accounts.find(a => a.id === tx.toAccountId)?.name} />
-                     ))}
+                     {transactionsWithPreBalance.slice(0, 5).map(tx => {
+                        const category = categories.find(c => c.name === tx.category);
+                        const subCat = category?.subCategories.find(sc => sc.name === tx.subCategory);
+                        const customIconName = subCat?.icon || category?.icon;
+                        
+                        return (
+                          <TransactionItem 
+                            key={`${tx.id}-${tx.perspective || 'solo'}`} 
+                            transaction={tx} 
+                            perspective={tx.perspective} 
+                            preBalance={tx.preBalance} 
+                            customIcon={customIconName ? IconMap[customIconName] : undefined}
+                            accountName={accounts.find(a => a.id === (tx.perspective === 'target' ? tx.toAccountId : tx.accountId))?.name || 'Unknown'} 
+                            onClick={() => handleEditTransaction(tx)} 
+                            onDelete={() => performDeleteTransaction(tx.id)} 
+                            onClone={() => handleCloneTransaction(tx)} 
+                            onLongPress={() => handleToggleRecordSelection(tx.id)} 
+                            isSelected={selectedRecordIds.includes(tx.id)} 
+                            fromAccountName={accounts.find(a => a.id === tx.accountId)?.name} 
+                            toAccountName={accounts.find(a => a.id === tx.toAccountId)?.name} 
+                          />
+                        );
+                     })}
                      {transactionsToDisplay.length > 0 && (
                         <button onClick={() => { setActiveView('records'); pushNav(); }} className="w-full py-4 text-blue-500 font-medium text-[10px] uppercase tracking-[0.2em] border-t border-zinc-900/30 hover:bg-zinc-800/20 active:bg-zinc-800/40 transition-colors">Show more</button>
                      )}
@@ -821,9 +935,29 @@ const App: React.FC = () => {
                   </div>
                 ) : (
                   <div className="bg-[#1e1e1e]/80 rounded-[8px] overflow-hidden border border-zinc-900/50">
-                    {transactionsWithPreBalance.map(tx => (
-                      <TransactionItem key={`${tx.id}-${tx.perspective || 'solo'}`} transaction={tx} perspective={tx.perspective} preBalance={tx.preBalance} accountName={accounts.find(a => a.id === (tx.perspective === 'target' ? tx.toAccountId : tx.accountId))?.name || 'Unknown'} onClick={() => handleEditTransaction(tx)} onDelete={() => performDeleteTransaction(tx.id)} onClone={() => handleCloneTransaction(tx)} onLongPress={() => handleToggleRecordSelection(tx.id)} isSelected={selectedRecordIds.includes(tx.id)} fromAccountName={accounts.find(a => a.id === tx.accountId)?.name} toAccountName={accounts.find(a => a.id === tx.toAccountId)?.name} />
-                    ))}
+                    {transactionsWithPreBalance.map(tx => {
+                       const category = categories.find(c => c.name === tx.category);
+                       const subCat = category?.subCategories.find(sc => sc.name === tx.subCategory);
+                       const customIconName = subCat?.icon || category?.icon;
+
+                       return (
+                        <TransactionItem 
+                          key={`${tx.id}-${tx.perspective || 'solo'}`} 
+                          transaction={tx} 
+                          perspective={tx.perspective} 
+                          preBalance={tx.preBalance} 
+                          customIcon={customIconName ? IconMap[customIconName] : undefined}
+                          accountName={accounts.find(a => a.id === (tx.perspective === 'target' ? tx.toAccountId : tx.accountId))?.name || 'Unknown'} 
+                          onClick={() => handleEditTransaction(tx)} 
+                          onDelete={() => performDeleteTransaction(tx.id)} 
+                          onClone={() => handleCloneTransaction(tx)} 
+                          onLongPress={() => handleToggleRecordSelection(tx.id)} 
+                          isSelected={selectedRecordIds.includes(tx.id)} 
+                          fromAccountName={accounts.find(a => a.id === tx.accountId)?.name} 
+                          toAccountName={accounts.find(a => a.id === tx.toAccountId)?.name} 
+                        />
+                       );
+                    })}
                   </div>
                 )}
              </div>
@@ -964,12 +1098,28 @@ const App: React.FC = () => {
               {selectedMainCategory ? (
                 <>
                   <button onClick={() => { setTxCategory(selectedMainCategory.name); setTxSubCategory(''); setShowCategoryPicker(false); setSelectedMainCategory(null); }} className="w-full flex items-center justify-between p-4 bg-blue-600/10 border border-blue-500/30 rounded-[8px] transition-all"><span className="font-medium text-lg text-blue-500">All {selectedMainCategory.name}</span></button>
-                  {selectedMainCategory.subCategories.map((sub, idx) => (<button key={idx} onClick={() => { setTxCategory(selectedMainCategory.name); setTxSubCategory(sub); setShowCategoryPicker(false); setSelectedMainCategory(null); }} className="w-full flex items-center justify-between p-4 bg-[#1e1e1e] border border-zinc-800 rounded-[8px] active:scale-[0.98] transition-all"><span className="font-medium text-lg text-zinc-100">{sub}</span></button>))}
+                  {selectedMainCategory.subCategories.map((sub, idx) => (
+                    <button 
+                      key={idx} 
+                      onClick={() => { setTxCategory(selectedMainCategory.name); setTxSubCategory(sub.name); setShowCategoryPicker(false); setSelectedMainCategory(null); }} 
+                      className="w-full flex items-center justify-between p-4 bg-[#1e1e1e] border border-zinc-800 rounded-[8px] active:scale-[0.98] transition-all"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="text-zinc-500">
+                          {sub.icon ? React.createElement(IconMap[sub.icon] || Tag, { className: "w-5 h-5" }) : <Tag className="w-5 h-5" />}
+                        </div>
+                        <span className="font-medium text-lg text-zinc-100">{sub.name}</span>
+                      </div>
+                    </button>
+                  ))}
                 </>
               ) : (
                 categories.map(cat => (
                   <button key={cat.id} onClick={() => setSelectedMainCategory(cat)} className="w-full flex items-center justify-between p-4 bg-[#1e1e1e] border border-zinc-800 rounded-[8px] active:scale-[0.98] transition-all group">
-                    <div className="flex items-center gap-4"><div className="text-zinc-500 group-active:text-blue-500 transition-colors">{getCategoryIcon(cat.name, "w-6 h-6")}</div><span className="font-medium text-lg text-zinc-100 group-active:text-blue-500 transition-colors">{cat.name}</span></div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-zinc-500 group-active:text-blue-500 transition-colors">{getCategoryIcon(cat.name, "w-6 h-6")}</div>
+                      <span className="font-medium text-lg text-zinc-100 group-active:text-blue-500 transition-colors">{cat.name}</span>
+                    </div>
                     <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest">{cat.subCategories.length} Items</span>
                   </button>
                 ))
@@ -1197,8 +1347,78 @@ const App: React.FC = () => {
       {managingCategory && (
         <div className="fixed inset-0 z-[160] bg-[#0e0e10] flex flex-col p-4 safe-top animate-in slide-in-from-bottom duration-300 no-scrollbar">
            <div className="flex items-center justify-between mb-8"><button onClick={() => setManagingCategory(null)} className={closeBtn}><ArrowLeft className="w-5 h-5" /></button><h3 className="text-xl font-medium uppercase tracking-tight">Category Details</h3><button onClick={() => deleteCategory(managingCategory.id)} className={deleteBtn}><Trash2 className="w-5 h-5" /></button></div>
-           <div className="space-y-4 mb-6"><span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest block ml-2">Category Name</span>{isEditingCategoryName ? (<div className="p-4 bg-[#1e1e1e] border border-zinc-800 rounded-[8px] flex items-center justify-between animate-in fade-in zoom-in duration-200"><div className="flex items-center gap-4 flex-1 mr-2"><div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-zinc-500 shrink-0">{getCategoryIcon(managingCategory.name, "w-5 h-5")}</div><input value={editingCategoryValue} onChange={e => setEditingCategoryValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && updateCategoryName(managingCategory.id, editingCategoryValue)} className="bg-transparent border-b border-blue-500 outline-none text-xl font-medium text-white w-full" /></div><div className="flex gap-1 shrink-0"><button onClick={() => updateCategoryName(managingCategory.id, editingCategoryValue)} className="p-2 bg-blue-600 rounded-lg text-white"><Check className="w-4 h-4" /></button><button onClick={() => setIsEditingCategoryName(false)} className="p-2 bg-zinc-700 rounded-lg text-white"><X className="w-4 h-4" /></button></div></div>) : (<div className="p-4 bg-[#1e1e1e] rounded-[8px] border border-zinc-800 flex items-center justify-between group"><div className="flex items-center gap-4"><div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-zinc-500">{getCategoryIcon(managingCategory.name, "w-5 h-5")}</div><span className="text-2xl font-medium text-white">{managingCategory.name}</span></div><button onClick={() => { setIsEditingCategoryName(true); setEditingCategoryValue(managingCategory.name); }} className="p-2 text-zinc-500 hover:text-white"><Edit2 className="w-4 h-4" /></button></div>)}</div>
-           <div className="flex-1 overflow-y-auto px-1 space-y-2 pb-20 no-scrollbar"><div className="flex items-center justify-between mb-2"><span className="text-xs font-medium text-zinc-500 uppercase tracking-widest px-2">Sub-categories</span><button onClick={() => setIsAddingSub(true)} className={saveBtn}><Plus className="w-5 h-5" /></button></div>{isAddingSub && (<div className="p-4 bg-[#1e1e1e] border border-zinc-800 rounded-[8px] flex items-center justify-between animate-in fade-in zoom-in duration-200"><input placeholder="Sub-category name..." value={newSubValue} onChange={e => setNewSubValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddSubCategory(managingCategory.id, newSubValue)} className="bg-transparent outline-none font-medium text-white flex-1 mr-2" /><div className="flex items-center gap-1 shrink-0"><button onClick={() => handleAddSubCategory(managingCategory.id, newSubValue)} className="p-2 bg-blue-600 rounded-lg text-white"><Check className="w-4 h-4" /></button><button onClick={() => setIsAddingSub(false)} className="p-2 bg-zinc-700 rounded-lg text-white"><X className="w-4 h-4" /></button></div></div>)}{managingCategory.subCategories.map((sub, idx) => (<div key={idx} className="p-4 bg-[#1e1e1e] rounded-[8px] flex items-center justify-between border border-zinc-800">{editingSubIndex === idx ? (<div className="flex items-center justify-between w-full"><input value={editingSubValue} onChange={e => setEditingSubValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveSubCategoryEdit(managingCategory.id, idx, editingSubValue)} className="bg-transparent border-b border-blue-500 outline-none font-medium text-white flex-1 mr-2" /><div className="flex gap-1 shrink-0"><button onClick={() => saveSubCategoryEdit(managingCategory.id, idx, editingSubValue)} className="p-2 bg-blue-600 rounded-lg text-white"><Check className="w-4 h-4" /></button><button onClick={() => setEditingSubIndex(null)} className="p-2 bg-zinc-700 rounded-lg text-white"><X className="w-4 h-4" /></button></div></div>) : (<><span className="font-medium text-zinc-200">{sub}</span><div className="flex gap-2"><button onClick={() => { setEditingSubIndex(idx); setEditingSubValue(sub); }} className="p-2 text-zinc-500"><Edit2 className="w-4 h-4" /></button><button onClick={() => handleDeleteSubCategory(managingCategory.id, idx)} className="p-2 text-zinc-500"><Trash2 className="w-4 h-4" /></button></div></>)}</div>))}</div>
+           <div className="space-y-4 mb-6">
+             <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest block ml-2">Category Name</span>
+             <div className="flex gap-3">
+               <button 
+                onClick={() => { setIsIconPickerOpen(true); setIconPickerContext({ type: 'category', catId: managingCategory.id }); }}
+                className="w-14 h-14 bg-[#1e1e1e] rounded-[12px] border border-zinc-800 flex items-center justify-center text-blue-500 active:scale-95 transition-all shadow-lg"
+               >
+                 {getCategoryIcon(managingCategory.name, "w-6 h-6")}
+               </button>
+               <div className="flex-1">
+                 {isEditingCategoryName ? (
+                   <div className="p-4 bg-[#1e1e1e] border border-zinc-800 rounded-[8px] flex items-center justify-between animate-in fade-in zoom-in duration-200">
+                     <input value={editingCategoryValue} onChange={e => setEditingCategoryValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && updateCategoryName(managingCategory.id, editingCategoryValue)} className="bg-transparent border-b border-blue-500 outline-none text-xl font-medium text-white w-full mr-2" />
+                     <div className="flex gap-1 shrink-0">
+                       <button onClick={() => updateCategoryName(managingCategory.id, editingCategoryValue)} className="p-2 bg-blue-600 rounded-lg text-white"><Check className="w-4 h-4" /></button>
+                       <button onClick={() => setIsEditingCategoryName(false)} className="p-2 bg-zinc-700 rounded-lg text-white"><X className="w-4 h-4" /></button>
+                     </div>
+                   </div>
+                 ) : (
+                   <div className="p-4 h-14 bg-[#1e1e1e] rounded-[8px] border border-zinc-800 flex items-center justify-between group">
+                     <span className="text-xl font-medium text-white">{managingCategory.name}</span>
+                     <button onClick={() => { setIsEditingCategoryName(true); setEditingCategoryValue(managingCategory.name); }} className="p-2 text-zinc-500 hover:text-white"><Edit2 className="w-4 h-4" /></button>
+                   </div>
+                 )}
+               </div>
+             </div>
+           </div>
+           
+           <div className="flex-1 overflow-y-auto px-1 space-y-2 pb-20 no-scrollbar">
+             <div className="flex items-center justify-between mb-2">
+               <span className="text-xs font-medium text-zinc-500 uppercase tracking-widest px-2">Sub-categories</span>
+               <button onClick={() => setIsAddingSub(true)} className={saveBtn}><Plus className="w-5 h-5" /></button>
+             </div>
+             {isAddingSub && (
+               <div className="p-4 bg-[#1e1e1e] border border-zinc-800 rounded-[8px] flex items-center justify-between animate-in fade-in zoom-in duration-200">
+                 <input placeholder="Sub-category name..." value={newSubValue} onChange={e => setNewSubValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddSubCategory(managingCategory.id, newSubValue)} className="bg-transparent outline-none font-medium text-white flex-1 mr-2" />
+                 <div className="flex items-center gap-1 shrink-0">
+                   <button onClick={() => handleAddSubCategory(managingCategory.id, newSubValue)} className="p-2 bg-blue-600 rounded-lg text-white"><Check className="w-4 h-4" /></button>
+                   <button onClick={() => setIsAddingSub(false)} className="p-2 bg-zinc-700 rounded-lg text-white"><X className="w-4 h-4" /></button>
+                 </div>
+               </div>
+             )}
+             {managingCategory.subCategories.map((sub, idx) => (
+               <div key={idx} className="p-4 bg-[#1e1e1e] rounded-[8px] flex items-center gap-3 border border-zinc-800">
+                  <button 
+                    onClick={() => { setIsIconPickerOpen(true); setIconPickerContext({ type: 'subcategory', catId: managingCategory.id, subIndex: idx }); }}
+                    className="w-10 h-10 bg-[#0e0e10] rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-blue-500"
+                  >
+                    {sub.icon ? React.createElement(IconMap[sub.icon] || Tag, { className: "w-5 h-5" }) : <Tag className="w-5 h-5" />}
+                  </button>
+                  <div className="flex-1">
+                    {editingSubIndex === idx ? (
+                      <div className="flex items-center justify-between w-full">
+                        <input value={editingSubValue} onChange={e => setEditingSubValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveSubCategoryEdit(managingCategory.id, idx, editingSubValue)} className="bg-transparent border-b border-blue-500 outline-none font-medium text-white flex-1 mr-2" />
+                        <div className="flex gap-1 shrink-0">
+                          <button onClick={() => saveSubCategoryEdit(managingCategory.id, idx, editingSubValue)} className="p-2 bg-blue-600 rounded-lg text-white"><Check className="w-4 h-4" /></button>
+                          <button onClick={() => setEditingSubIndex(null)} className="p-2 bg-zinc-700 rounded-lg text-white"><X className="w-4 h-4" /></button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between w-full">
+                        <span className="font-medium text-zinc-200">{sub.name}</span>
+                        <div className="flex gap-2">
+                          <button onClick={() => { setEditingSubIndex(idx); setEditingSubValue(sub.name); }} className="p-2 text-zinc-500"><Edit2 className="w-4 h-4" /></button>
+                          <button onClick={() => handleDeleteSubCategory(managingCategory.id, idx)} className="p-2 text-zinc-500"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+               </div>
+             ))}
+           </div>
         </div>
       )}
     </div>

@@ -1,12 +1,14 @@
+
 import React, { useState, useRef } from 'react';
 import { Transaction, TransactionType } from '../types';
-import { ArrowUpRight, ArrowDownLeft, ArrowLeftRight, Split, Copy, Trash2, ShoppingBag, Scissors, Landmark, ReceiptText, Utensils } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, ArrowLeftRight, Split, Copy, Trash2, ShoppingBag, Scissors, Landmark, ReceiptText, Utensils, Tag } from 'lucide-react';
 
 interface TransactionItemProps {
   transaction: Transaction;
   accountName: string;
   perspective?: 'source' | 'target';
   preBalance?: number;
+  customIcon?: React.FC<any>;
   onClick?: () => void;
   onDelete?: () => void;
   onClone?: () => void;
@@ -22,6 +24,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
   accountName, 
   perspective,
   preBalance,
+  customIcon: CustomIcon,
   onClick, 
   onDelete, 
   onClone,
@@ -88,10 +91,13 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
   };
 
   const getCategoryIcon = () => {
-    const cat = transaction.category.toLowerCase();
     if (isTransfer) {
       return <ArrowLeftRight className="w-5 h-5 text-white" />;
     }
+    if (CustomIcon) {
+      return <CustomIcon className="w-5 h-5" />;
+    }
+    const cat = transaction.category.toLowerCase();
     if (cat.includes('shopping')) return <ShoppingBag className="w-4 h-4" />;
     if (cat.includes('hair') || cat.includes('health')) return <Scissors className="w-4 h-4" />;
     if (cat.includes('grocer') || cat.includes('food')) return <Utensils className="w-4 h-4" />;
